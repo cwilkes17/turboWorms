@@ -172,10 +172,14 @@ export function buildSnapshot(world: World) {
         x: Math.round(fb.position.x),
         y: Math.round(fb.position.y),
         r: fb.radius,
-        /** Spawn point, so the client can fade the projectile out as it nears
-         *  FIREBALL_MAX_RANGE_PX without the server needing to send a life fraction. */
+        /** Spawn point (or bounce point once `bounced`), so the client can fade the
+         *  projectile out as it nears its range limit without the server needing to
+         *  send a life fraction every tick. */
         sx: Math.round(spawn.x),
         sy: Math.round(spawn.y),
+        /** Whether this has bounced off a shield — still lethal, but on a shorter travel
+         *  budget (FIREBALL_BOUNCE_RANGE_PX) and rendered fading to black instead of orange. */
+        bounced: !!fb.bounced,
       }
     }),
   }

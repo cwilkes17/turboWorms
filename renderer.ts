@@ -1,4 +1,4 @@
-import { FIREBALL_MAX_RANGE_PX } from './abilities.ts'
+import { FIREBALL_BOUNCE_RANGE_PX, FIREBALL_MAX_RANGE_PX } from './abilities.ts'
 
 /**
  * Canvas 2D view: server snapshots + linear interpolation between packets.
@@ -31,10 +31,12 @@ export type SnapshotFireball = {
   x: number
   y: number
   r: number
-  /** Spawn point (world space) — used client-side to fade the projectile out as it
-   *  approaches FIREBALL_MAX_RANGE_PX. Falls back to current position if absent. */
+  /** Spawn point (or bounce point once `bounced`), world space — used client-side to fade
+   *  the projectile out as it approaches its range limit. Falls back to current position if absent. */
   sx?: number
   sy?: number
+  /** Bounced off a shield — still lethal, drawn fading toward black instead of orange. */
+  bounced?: boolean
 }
 
 export type GameSnapshot = {
@@ -233,30 +235,51 @@ function drawDebugFoodMarker(ctx: CanvasRenderingContext2D, x: number, y: number
 /** Fraction of range already traveled where the fade begins (rest of the range fades to 0). */
 const FIREBALL_FADE_START_FRACTION = 0.7
 
-/** 1 near spawn, ramping down to 0 as the projectile nears `FIREBALL_MAX_RANGE_PX`.
- *  Purely cosmetic — the server is what actually despawns the fireball at max range;
- *  this just avoids a jarring pop right before that happens. */
-function fireballFadeAlpha(traveledPx: number): number {
-  const fadeStart = FIREBALL_MAX_RANGE_PX * FIREBALL_FADE_START_FRACTION
+/** 1 near spawn/bounce, ramping down to 0 as the projectile nears `rangePx`. Purely
+ *  cosmetic — the server is what actually despawns the fireball at its range limit; this
+ *  just avoids a jarring pop right before that happens. `rangePx` is the normal max range
+ *  for a fresh fireball, or the much shorter bounce range once it's bounced off a shield. */
+function fireballFadeAlpha(traveledPx: number, rangePx: number): number {
+  const fadeStart = rangePx * FIREBALL_FADE_START_FRACTION
   if (traveledPx <= fadeStart) return 1
-  const t = (traveledPx - fadeStart) / (FIREBALL_MAX_RANGE_PX - fadeStart)
+  const t = (traveledPx - fadeStart) / (rangePx - fadeStart)
   return clamp01(1 - t)
 }
 
-function drawFireball(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha = 1) {
+function lerpChannel(a: number, b: number, t: number): number {
+  return Math.round(a + (b - a) * t)
+}
+
+/** `blacken` 0 = normal fiery orange (a fresh fireball); 1 = fully black (a bounced
+ *  fireball right before it despawns). PRODUCT.md: bounced fireballs "fade to black." */
+function drawFireball(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha = 1, blacken = 0) {
+  const t = clamp01(blacken)
+  const coreR = lerpChannel(255, 25, t)
+  const coreG = lerpChannel(248, 25, t)
+  const coreB = lerpChannel(220, 28, t)
+  const midR = lerpChannel(255, 18, t)
+  const midG = lerpChannel(140, 18, t)
+  const midB = lerpChannel(50, 22, t)
+  const outR = lerpChannel(200, 6, t)
+  const outG = lerpChannel(40, 6, t)
+  const outB = lerpChannel(10, 8, t)
+  const dotR = lerpChannel(255, 35, t)
+  const dotG = lerpChannel(210, 35, t)
+  const dotB = lerpChannel(120, 38, t)
+
   ctx.save()
   ctx.globalAlpha = clamp01(alpha)
   const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 5)
-  glow.addColorStop(0, 'rgba(255,248,220,1)')
-  glow.addColorStop(0.2, 'rgba(255,140,50,0.75)')
-  glow.addColorStop(1, 'rgba(200,40,10,0)')
+  glow.addColorStop(0, `rgba(${coreR},${coreG},${coreB},1)`)
+  glow.addColorStop(0.2, `rgba(${midR},${midG},${midB},0.75)`)
+  glow.addColorStop(1, `rgba(${outR},${outG},${outB},0)`)
   ctx.fillStyle = glow
   ctx.beginPath()
   ctx.arc(x, y, r * 5, 0, Math.PI * 2)
   ctx.fill()
   ctx.beginPath()
   ctx.arc(x, y, Math.max(r, 2), 0, Math.PI * 2)
-  ctx.fillStyle = 'rgba(255,210,120,0.95)'
+  ctx.fillStyle = `rgba(${dotR},${dotG},${dotB},0.95)`
   ctx.fill()
   ctx.restore()
 }
@@ -449,7 +472,9 @@ export class GameRenderer {
       const sx = fb.sx ?? fb.x
       const sy = fb.sy ?? fb.y
       const traveled = Math.hypot(q.x - sx, q.y - sy)
-      drawFireball(ctx, q.x, q.y, q.r, fireballFadeAlpha(traveled))
+      const range = fb.bounced ? FIREBALL_BOUNCE_RANGE_PX : FIREBALL_MAX_RANGE_PX
+      const blacken = fb.bounced ? clamp01(traveled / range) : 0
+      drawFireball(ctx, q.x, q.y, q.r, fireballFadeAlpha(traveled, range), blacken)
 
 
 

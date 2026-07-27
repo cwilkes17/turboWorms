@@ -2,6 +2,7 @@ import {
   type AbilityInput,
   BOOST_MASS_DRAIN_PER_SEC,
   BOOST_SPEED_MUL,
+  FIREBALL_BOUNCE_RANGE_PX,
   FIREBALL_MAX_RANGE_PX,
   MASS_EPS,
   TURBO_SPEED_MUL,
@@ -48,6 +49,9 @@ export type GameTickOptions = {
   headTurnRadPerSec?: number
   /** Distance a fireball can travel from its spawn point before despawning (world units). */
   fireballMaxRangePx?: number
+  /** Shorter travel budget for a fireball that has bounced off a shield, measured from the
+   *  bounce point instead of the original spawn point. */
+  fireballBounceRangePx?: number
 }
 
 function cloneSnake(s: Snake): Snake {
@@ -162,10 +166,13 @@ function movementSpeedMultiplier(snake: Snake, mass: number, input: AbilityInput
   return 1
 }
 
-/** Moves projectiles, then drops any that have traveled past `maxRangePx` from spawn.
- *  A fireball with no `spawnPosition` (e.g. an older save or a hand-built test fixture)
- *  can't have its range measured, so it's left alone rather than guessed at. */
-function integrateFireballs(fbs: Fireball[], dt: number, maxRangePx: number): Fireball[] {
+/** Moves projectiles, then drops any that have traveled past their range budget measured
+ *  from `spawnPosition` — `maxRangePx` normally, or the shorter `bounceRangePx` once a
+ *  fireball has bounced off a shield (collision.ts resets `spawnPosition` to the bounce
+ *  point, so the same distance check works for both cases). A fireball with no
+ *  `spawnPosition` (e.g. an older save or a hand-built test fixture) can't have its range
+ *  measured, so it's left alone rather than guessed at. */
+function integrateFireballs(fbs: Fireball[], dt: number, maxRangePx: number, bounceRangePx: number): Fireball[] {
   return fbs
     .map((fb) => ({
       ...fb,
@@ -178,7 +185,8 @@ function integrateFireballs(fbs: Fireball[], dt: number, maxRangePx: number): Fi
       if (!fb.spawnPosition) return true
       const dx = fb.position.x - fb.spawnPosition.x
       const dy = fb.position.y - fb.spawnPosition.y
-      return hypot(dx, dy) < maxRangePx
+      const limit = fb.bounced ? bounceRangePx : maxRangePx
+      return hypot(dx, dy) < limit
     })
 }
 
@@ -239,6 +247,7 @@ export function tick(world: World, inputs: TickInputs, deltaTime: number, option
   const segmentSpacing = options?.segmentSpacing ?? SEGMENT_SPACING
   const headTurnOmega = options?.headTurnRadPerSec ?? DEFAULT_HEAD_TURN_RAD_PER_SEC
   const fireballMaxRangePx = options?.fireballMaxRangePx ?? FIREBALL_MAX_RANGE_PX
+  const fireballBounceRangePx = options?.fireballBounceRangePx ?? FIREBALL_BOUNCE_RANGE_PX
 
   let w = applyInputs(world, inputs, dt, headTurnOmega)
 
@@ -320,7 +329,7 @@ export function tick(world: World, inputs: TickInputs, deltaTime: number, option
   /** 4b */
   w = {
     ...w,
-    fireballs: integrateFireballs(w.fireballs, dt, fireballMaxRangePx),
+    fireballs: integrateFireballs(w.fireballs, dt, fireballMaxRangePx, fireballBounceRangePx),
   }
 
   /** 5 — includes head vs food pickups → `massGained` */

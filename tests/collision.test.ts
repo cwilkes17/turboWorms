@@ -91,6 +91,109 @@ test('fireball never kills its own owner, even overlapping the owner head at spa
   assert.equal(out.fireballs.length, 1)
 })
 
+test('fireball bounces off a shielded head instead of killing it', () => {
+  const shielded = worm({
+    id: 'guardian',
+    segments: [{ x: 100, y: 0 }],
+    state: { shield: true, fireballCooldown: 0 },
+  })
+  const projectile = fb({
+    id: 'fb-bounce',
+    ownerId: 'attacker',
+    position: { x: 90, y: 0 },
+    radius: 5,
+    velocity: { x: 50, y: 0 },
+  })
+  const out = resolveCollisions([shielded], [projectile], [], { ...opts(), headRadius: 8, bodyRadius: 8 })
+
+  assert.equal(out.snakes[0].alive, true, 'shield blocks the death')
+  assert.equal(out.fireballs.length, 1, 'fireball is not removed - it bounces')
+  const bounced = out.fireballs[0]!
+  assert.equal(bounced.bounced, true)
+  assert.ok(Math.abs(bounced.velocity.x - -50) < 1e-9, 'head-on hit reflects straight back')
+  assert.ok(Math.abs(bounced.velocity.y) < 1e-9)
+  const distFromHead = Math.hypot(bounced.position.x - 100, bounced.position.y)
+  assert.ok(distFromHead >= 8 + 5, 'pushed just outside the shield so it will not re-bounce next tick')
+  assert.deepEqual(bounced.spawnPosition, bounced.position, 'range budget resets fresh from the bounce point')
+})
+
+test('a bounced fireball is still lethal to the next enemy head it touches', () => {
+  const shielded = worm({
+    id: 'guardian',
+    segments: [{ x: 100, y: 0 }],
+    state: { shield: true, fireballCooldown: 0 },
+  })
+  const projectile = fb({
+    id: 'fb-1',
+    ownerId: 'attacker',
+    position: { x: 90, y: 0 },
+    radius: 5,
+    velocity: { x: 50, y: 0 },
+  })
+  const opt = { ...opts(), headRadius: 8, bodyRadius: 8 }
+  const afterBounce = resolveCollisions([shielded], [projectile], [], opt)
+  const bouncedFb = afterBounce.fireballs[0]!
+  assert.equal(bouncedFb.bounced, true)
+
+  const victim = worm({ id: 'bystander', segments: [{ x: bouncedFb.position.x, y: bouncedFb.position.y }] })
+  const secondHit = resolveCollisions([victim], [bouncedFb], [], opt)
+  assert.equal(secondHit.snakes[0].alive, false, 'bounced fireball is still deadly')
+  assert.equal(secondHit.fireballs.length, 0, 'consumed on the lethal hit, same as any other fireball')
+})
+
+test('a bounced fireball still cannot harm its own original owner', () => {
+  const shielded = worm({
+    id: 'guardian',
+    segments: [{ x: 100, y: 0 }],
+    state: { shield: true, fireballCooldown: 0 },
+  })
+  const projectile = fb({
+    id: 'fb-1',
+    ownerId: 'shooter',
+    position: { x: 90, y: 0 },
+    radius: 5,
+    velocity: { x: 50, y: 0 },
+  })
+  const opt = { ...opts(), headRadius: 8, bodyRadius: 8 }
+  const afterBounce = resolveCollisions([shielded], [projectile], [], opt)
+  const bouncedFb = afterBounce.fireballs[0]!
+
+  const owner = worm({ id: 'shooter', segments: [{ x: bouncedFb.position.x, y: bouncedFb.position.y }] })
+  const secondHit = resolveCollisions([owner], [bouncedFb], [], opt)
+  assert.equal(secondHit.snakes[0].alive, true, 'still immune to its own original owner after bouncing')
+  assert.equal(secondHit.fireballs.length, 1, 'passes through untouched, not consumed')
+})
+
+test('a bounced fireball can bounce again off a second shield', () => {
+  const shielded1 = worm({
+    id: 'guardian-1',
+    segments: [{ x: 100, y: 0 }],
+    state: { shield: true, fireballCooldown: 0 },
+  })
+  const projectile = fb({
+    id: 'fb-1',
+    ownerId: 'shooter',
+    position: { x: 90, y: 0 },
+    radius: 5,
+    velocity: { x: 50, y: 0 },
+  })
+  const opt = { ...opts(), headRadius: 8, bodyRadius: 8 }
+  const first = resolveCollisions([shielded1], [projectile], [], opt)
+  const bounced1 = first.fireballs[0]!
+
+  const shielded2 = worm({
+    id: 'guardian-2',
+    segments: [{ x: bounced1.position.x, y: bounced1.position.y }],
+    state: { shield: true, fireballCooldown: 0 },
+  })
+  const second = resolveCollisions([shielded2], [bounced1], [], opt)
+  assert.equal(second.snakes[0].alive, true, 'second shield also blocks the death')
+  assert.equal(second.fireballs.length, 1)
+  const bounced2 = second.fireballs[0]!
+  assert.equal(bounced2.bounced, true)
+  assert.ok(bounced2.velocity.x > 0, 'reflected again, now heading back the other way')
+})
+
 test('fireball passes through its own owner\'s body untouched', () => {
   // Regression test: fireballs spawn at the owner's head, so with any body segments
   // at all (SEGMENT_SPACING = 10 units apart) the projectile starts out overlapping

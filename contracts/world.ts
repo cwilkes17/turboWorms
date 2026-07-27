@@ -43,8 +43,11 @@ export type Fireball = {
   position: Vec2
   velocity: Vec2
   radius: number
-  /** Where this projectile spawned; used to expire it past `FIREBALL_MAX_RANGE_PX`. */
+  /** Where this projectile spawned (or last bounced from); used to expire it past
+   *  `FIREBALL_MAX_RANGE_PX`, or `FIREBALL_BOUNCE_RANGE_PX` once `bounced`. */
   spawnPosition?: Vec2
+  /** Set once it has bounced off a shield — still lethal, just on a shorter travel budget. */
+  bounced?: boolean
 }
 
 /**

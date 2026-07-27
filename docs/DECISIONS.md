@@ -11,6 +11,45 @@ directly, since there's only ever one current structure worth documenting).
 
 ---
 
+## 2026-07-27 — Shield now actually blocks fireballs (bounce, still deadly after)
+
+- **What:** filled in the mechanic PRODUCT.md already specified but that
+  never existed in code (flagged as a Known Gap in ARCHITECTURE.md when the
+  shield VFX went in, same day). A fireball hitting a shielded head now
+  reflects instead of killing; the shielded player takes no damage from that
+  hit.
+- **Explicit spec correction — bounced fireballs are deadly, not harmless.**
+  The original PRODUCT.md text said a bounced fireball is "no longer
+  deadly." That was **changed on direct instruction**: bounced fireballs are
+  now lethal to the next enemy head they touch (still never their original
+  owner — that immunity is unrelated and untouched). If this reads as
+  surprising later, it was a deliberate override of the original written
+  spec, not a bug or a misread — see the request that prompted it.
+- **Reflection math:** velocity reflects off the head-to-fireball normal
+  (standard `v - 2(v·n)n`), same as bouncing off a circle. The fireball is
+  also nudged just outside the shield's collision radius at the moment of
+  the bounce so it can't immediately re-trigger another bounce against the
+  same head next tick before it's actually moved away.
+- **`FIREBALL_BOUNCE_RANGE_PX = 180`** — PRODUCT.md says "a short distance
+  after the bounce" without a number. Chose ~1/5 of the normal 900px range:
+  enough to actually threaten something nearby, short enough to clearly
+  read as "spent" rather than a second full shot. Tunable if it feels off
+  in play — log the change here, don't just edit the constant.
+  `spawnPosition` is reused (reset to the bounce point) so the exact same
+  distance-from-spawn check in `gameLoop.ts` works for both the normal
+  range and the bounce range — no parallel tracking field needed.
+- **Chain bounces are allowed, not specifically designed for.** Nothing
+  stops a bounced fireball from bouncing again off a second shield (each
+  bounce just resets its position/velocity/range budget the same way). Not
+  explicitly requested, but a natural consequence of the collision check
+  re-evaluating `state.shield` fresh on every hit rather than tracking
+  "already bounced once" as a one-time-only flag. Flagging in case it turns
+  out to feel wrong in practice (e.g., too easy to farm kills by clustering
+  shields) — that would be a scope question, not a bug.
+- **Visual:** bounced fireballs lerp from the normal fiery-orange palette
+  toward black as they approach `FIREBALL_BOUNCE_RANGE_PX` (client-side
+  only, cosmetic — the server's the one actually despawning it).
+
 ## 2026-07-27 — Shield VFX added; shield data was never on the wire (new feature)
 
 - **What:** shield now draws a light blue-white glowing forcefield around

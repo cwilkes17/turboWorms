@@ -167,6 +167,38 @@ test('fireball despawns once it travels past fireballMaxRangePx from its spawn p
   assert.equal(next.fireballs.length, 0)
 })
 
+test('a bounced fireball despawns using the shorter bounce range, not the normal max range', () => {
+  const world = createEmptyWorld({
+    bounds: { center: { x: 0, y: 0 }, radius: 5_000 },
+    snakes: [
+      {
+        id: 'solo',
+        segments: [{ x: 0, y: 0 }],
+        direction: 0,
+        speed: 0,
+        alive: true,
+      },
+    ],
+    snakeMassById: { solo: 1 },
+    fireballs: [
+      {
+        id: 'post-bounce',
+        ownerId: 'solo',
+        // Well short of the normal 900px max range, but past the 180px bounce range once moved.
+        position: { x: 170, y: 0 },
+        spawnPosition: { x: 0, y: 0 }, // the bounce point, per collision.ts
+        velocity: { x: 100, y: 0 },
+        radius: 3,
+        bounced: true,
+      },
+    ],
+  })
+
+  // 170 + 100*0.2 = 190 > 180px bounce range -> despawned, even though it's nowhere near 900.
+  const next = tick(world, idleInputs('solo'), 0.2)
+  assert.equal(next.fireballs.length, 0)
+})
+
 test('fireball within range survives the tick', () => {
   const world = createEmptyWorld({
     bounds: { center: { x: 0, y: 0 }, radius: 5_000 },

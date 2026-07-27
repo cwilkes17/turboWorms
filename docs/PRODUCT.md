@@ -97,9 +97,14 @@ Client may send inputs often; **server is authoritative** for all outcomes.
   continuous border around the whole worm, not a chain of separate blobs —
   light blue-white, with a gentle shimmer/pulse while active.
 - On fireball hit while shielded:
-  1. Fireball **bounces** off the shield.
-  2. After bounce it is **no longer deadly**.
-  3. It **fades to black** and **despawns** a short distance after the bounce.
+  1. Fireball **bounces** (reflects) off the shield; the shielded player
+     takes **no damage** from this hit.
+  2. After the bounce it is **still deadly** — it can kill the next enemy
+     head it touches, same as any other fireball. It still can never harm
+     its original owner.
+  3. It **fades to black** and **despawns** a short distance after the
+     bounce — its own short travel budget, shorter than a fresh fireball's
+     normal range, measured from the bounce point.
 
 ### **Boost / Turbo**
 

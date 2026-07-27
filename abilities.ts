@@ -28,6 +28,15 @@ export const MASS_EPS = 1e-9
  */
 export const FIREBALL_MAX_RANGE_PX = 900
 
+/**
+ * After bouncing off a shield, a fireball gets this much travel budget instead of
+ * FIREBALL_MAX_RANGE_PX, measured fresh from the bounce point (PRODUCT.md: "despawns a
+ * short distance after the bounce"). ~1/5 of the normal range — enough to actually threaten
+ * something nearby, short enough to clearly read as "spent" rather than a second full shot.
+ * See docs/DECISIONS.md.
+ */
+export const FIREBALL_BOUNCE_RANGE_PX = 180
+
 /** Seconds that must pass after a successful fire before another is allowed (PRODUCT.md). */
 export const FIREBALL_COOLDOWN_SEC = 5
 
@@ -48,10 +57,14 @@ export type FireballProjectile = {
   velocity: Vec2
   /** Matches head radius scaled from mass before fireball resolves. */
   radius: number
-  /** Where this projectile spawned; used to measure travel distance for range expiry.
-   *  Optional so hand-built test fixtures without it still type-check — gameLoop
-   *  treats a missing spawnPosition as "can't determine range, never expire". */
+  /** Where this projectile spawned (or last bounced from); used to measure travel distance
+   *  for range expiry. Optional so hand-built test fixtures without it still type-check —
+   *  gameLoop treats a missing spawnPosition as "can't determine range, never expire". */
   spawnPosition?: Vec2
+  /** Set once it has bounced off a shield. Still lethal to enemies (never its original
+   *  owner) — just on a shorter travel budget (FIREBALL_BOUNCE_RANGE_PX) and visually
+   *  fading to black. See docs/PRODUCT.md's Shield section. */
+  bounced?: boolean
 }
 
 export type AbilityTickCtx = {

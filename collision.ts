@@ -194,6 +194,35 @@ export function resolveCollisions(
       if (!tgt || !snakeAlive(tgt)) continue
 
       if (circlesOverlap(fb.position.x, fb.position.y, fb.radius, h.pos.x, h.pos.y, h.radius)) {
+        if (tgt.state?.shield) {
+          /**
+           * Shield blocks the death, not the projectile: reflect the fireball off the
+           * head-to-fireball normal instead of killing `tgt`. It stays lethal afterward
+           * (PRODUCT.md) — just on a short travel budget from the bounce point
+           * (FIREBALL_BOUNCE_RANGE_PX, applied in gameLoop's integrateFireballs) and
+           * still immune to its own original owner (that filter already ran above).
+           */
+          const dx = fb.position.x - h.pos.x
+          const dy = fb.position.y - h.pos.y
+          const dist = hypot(dx, dy)
+          const speed = hypot(fb.velocity.x, fb.velocity.y)
+          const [nx, ny] =
+            dist > 1e-6 ? [dx / dist, dy / dist] : speed > 1e-6 ? [-fb.velocity.x / speed, -fb.velocity.y / speed] : [1, 0]
+          const dot = fb.velocity.x * nx + fb.velocity.y * ny
+          fb.velocity = { x: fb.velocity.x - 2 * dot * nx, y: fb.velocity.y - 2 * dot * ny }
+          /** Push just outside the shield's collision radius so the reflected fireball
+           *  doesn't immediately re-overlap the same head and bounce again next tick
+           *  before it's actually had a chance to move away. */
+          fb.position = {
+            x: h.pos.x + nx * (h.radius + fb.radius + 1),
+            y: h.pos.y + ny * (h.radius + fb.radius + 1),
+          }
+          fb.bounced = true
+          fb.spawnPosition = { x: fb.position.x, y: fb.position.y }
+          removed = true
+          break
+        }
+
         tgt.alive = false
         fbRemove.add(fb.id)
         removed = true
