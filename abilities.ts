@@ -166,7 +166,10 @@ export function tickAbilities(
   const shieldActive = input.shieldHeld && snake.alive && mass > MASS_EPS
 
   return {
-    snake: { ...snake, mass, state: { ...snake.state, fireballCooldown } },
+    /** `state.shield` reflects this tick's authoritative `shieldActive` (post mass-check),
+     *  not just the raw held flag — so a renderer or future collision check reading
+     *  `Snake.state.shield` sees whether the shield can actually still afford to be up. */
+    snake: { ...snake, mass, state: { ...snake.state, fireballCooldown, shield: shieldActive } },
     shieldActive,
     effectiveSpeed: ctx.intrinsicSpeed * speedMul,
     fireballsSpawned,

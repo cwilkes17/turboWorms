@@ -92,7 +92,10 @@ Client may send inputs often; **server is authoritative** for all outcomes.
 - Hold to activate.
 - Drains **1% of current mass per second** while active (and mass remains).
 - **Blocks fireballs only** (does not block head/body collision death).
-- **VFX:** blue glowing force field around **each** body segment.
+- **VFX:** blue glowing force field around **each** body segment. Segments
+  sit close enough together that the glows overlap and read as one
+  continuous border around the whole worm, not a chain of separate blobs —
+  light blue-white, with a gentle shimmer/pulse while active.
 - On fireball hit while shielded:
   1. Fireball **bounces** off the shield.
   2. After bounce it is **no longer deadly**.

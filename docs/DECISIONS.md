@@ -11,6 +11,33 @@ directly, since there's only ever one current structure worth documenting).
 
 ---
 
+## 2026-07-27 — Shield VFX added; shield data was never on the wire (new feature)
+
+- **What:** shield now draws a light blue-white glowing forcefield around
+  the whole worm while active, with a slow shimmer/pulse.
+- **Why it had "no visual" before:** two separate gaps, both closed here.
+  (1) `Snake.state.shield` existed but was set from the raw held-input flag
+  in `updateAbilityHeldState` (step 2), not the post mass-check
+  `shieldActive` `tickAbilities` (step 4) actually computes — a minor
+  accuracy gap, fixed by writing `shieldActive` into `state.shield` in
+  `tickAbilities`'s own return. (2) `buildSnapshot` never put shield state
+  on the wire for *any* snake — there was no data path to the client at all,
+  which is the real reason nothing rendered.
+- **How the glow achieves a "whole-body outline" look:** rather than
+  computing an actual silhouette/outline path (expensive and fiddly in
+  Canvas 2D), each visible segment point gets its own soft radial-gradient
+  glow sized past its own radius. Since segments sit closer together
+  (`SEGMENT_SPACING`) than the glow's radius, adjacent halos overlap heavily
+  and blend into one continuous border rather than reading as a chain of
+  separate blobs. This was a deliberate simpler-alternative call, not a
+  compromise forced by lack of options — flagged here since it was
+  explicitly discussed as a design trade-off.
+- **Found in the process, not fixed:** shield has no actual gameplay effect
+  yet — it doesn't block fireballs (PRODUCT.md specifies a bounce mechanic;
+  `collision.ts` has no shield check at all). Logged as a known gap in
+  `docs/ARCHITECTURE.md` §9, not fixed here — this task was scoped to the
+  visual only.
+
 ## 2026-07-27 — Fireball cost retuned to 20% (was 10%)
 
 - **What:** `FIREBALL_MASS_FRACTION` 0.10 → 0.20. Requested directly against

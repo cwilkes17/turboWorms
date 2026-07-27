@@ -137,6 +137,7 @@ test('shield drains 1% of mass per second applied after optional fireball', () =
   const out = tickAbilities(base, input, 1, ctx())
   assert.ok(Math.abs(out.snake.mass - base.mass * (1 - SHIELD_DRAIN_PER_SEC)) < 1e-9)
   assert.equal(out.shieldActive, true)
+  assert.equal(out.snake.state.shield, true, 'state.shield is what the renderer reads to draw the VFX')
   assert.ok(Math.abs(out.drainPerSec - base.mass * SHIELD_DRAIN_PER_SEC) < 1e-9)
 })
 
@@ -200,6 +201,7 @@ test('shield active flag drops off when drained mass hits zero', () => {
   )
   assert.ok(out.snake.mass <= MASS_EPS)
   assert.equal(out.shieldActive, false)
+  assert.equal(out.snake.state.shield, false, 'state.shield mirrors the post-drain shieldActive value')
 })
 
 test('shield drain fraction applies after fireball mass reduction on same tick', () => {

@@ -18,6 +18,8 @@ export type SnapshotSnake = {
   score?: number
   /** Live mass/sec being spent on held abilities right now; 0 when idle. HUD "DRAIN". */
   drainPerSec?: number
+  /** Whether the shield ability is currently active — draws the blue glow aura. Optional for back-compat. */
+  shield?: boolean
   visibleSegments: SnapshotSegment[]
 }
 
@@ -152,6 +154,41 @@ function drawSegmentDiscs(
     ctx.lineWidth = 1.5
     ctx.stroke()
   }
+}
+
+/**
+ * Shield VFX: a soft light-blue/white radial glow drawn at every segment point, sized well
+ * past the segment's own radius. Segments are packed tightly (`SEGMENT_SPACING` is smaller
+ * than the glow radius), so the individual halos overlap heavily along the whole body and
+ * blend into what reads as one continuous glowing border/forcefield around the worm's outer
+ * edge, rather than a chain of separate blobs — without needing to compute an actual
+ * silhouette/outline path, which Canvas 2D doesn't make cheap. Drawn *before* the opaque
+ * body discs, so the discs render crisply on top of the glow instead of being washed out by it.
+ */
+function drawShieldGlow(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  const outer = r * 2.6
+  const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, outer)
+  glow.addColorStop(0, 'rgba(205,242,255,0.55)')
+  glow.addColorStop(0.55, 'rgba(120,205,255,0.32)')
+  glow.addColorStop(1, 'rgba(80,170,255,0)')
+  ctx.beginPath()
+  ctx.arc(x, y, outer, 0, Math.PI * 2)
+  ctx.fillStyle = glow
+  ctx.fill()
+}
+
+/** One glow pass per visible point (head + body), with a slow shimmer so the forcefield
+ *  reads as "energized" rather than a flat static overlay. */
+function drawShieldAura(ctx: CanvasRenderingContext2D, pts: Pt[], bodyR: number, headR: number, now: number) {
+  const pulse = 0.82 + 0.18 * Math.sin(now / 220)
+  ctx.save()
+  ctx.globalAlpha = pulse
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i]!
+    const r = i === 0 ? headR : bodyR
+    drawShieldGlow(ctx, p.x, p.y, r)
+  }
+  ctx.restore()
 }
 
 function drawFoodDot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, hue: number) {
@@ -424,6 +461,7 @@ export class GameRenderer {
       const pts = interpPts.get(id)
       const snake = cmap.get(id)
       if (!snake || !pts?.length || !snake.alive) continue
+      if (snake.shield) drawShieldAura(ctx, pts, this.segR, this.segR * this.headMul, now)
       const hue = hashHue(id)
       drawSegmentDiscs(ctx, pts, `hsl(${hue},52%,44%)`, `hsl(${hue},65%,18%)`, this.segR, this.segR * this.headMul)
     }

@@ -116,13 +116,13 @@ table.
 ## 7. Module reference
 
 - **`movement.ts`** — `simulateMovement` (head along `cos/sin(dir)*speed*dt`, body re-spaced at `SEGMENT_SPACING`); `steerHeadingToward` (turn-rate cap, `DEFAULT_HEAD_TURN_RAD_PER_SEC = 12`).
-- **`abilities.ts`** — `tickAbilities`. Order per tick: fireball cost (gated by `state.fireballCooldown`) → shield drain → turbo/boost drain → clamp mass. Also returns `drainPerSec` — the live mass/sec spent on held abilities this tick (shield + turbo/boost), deliberately excluding the one-time fireball cost, which is a burst spend rather than an ongoing drain. See constants table below.
+- **`abilities.ts`** — `tickAbilities`. Order per tick: fireball cost (gated by `state.fireballCooldown`) → shield drain → turbo/boost drain → clamp mass. Also returns `drainPerSec` — the live mass/sec spent on held abilities this tick (shield + turbo/boost), deliberately excluding the one-time fireball cost, which is a burst spend rather than an ongoing drain. The returned `snake.state.shield` is set from this tick's `shieldActive` (post mass-check), not just the raw held flag — that's the value the renderer trusts for the shield VFX. See constants table below.
   - `fireballTriggered` reflects whatever the client last sent, which is `true` for the *entire* time the key is held (~45Hz input send rate), not just the initial press. The cooldown gate (not just alive/mass checks) is what makes holding the key equivalent to tapping it exactly on cadence — without it, a held key fires (and pays the mass cost) on every single tick. Fixed 2026-07-27; `Snake.state.fireballCooldown` existed in the type from the start but was never read or written until then.
 - **`collision.ts`** — `resolveCollisions`, uniform grid over segments + circle tests. Self body never kills the owner (intentional); enemy body kills the attacking head. A fireball's own owner is filtered out of **both** its head-hit and body-hit candidates for the same reason — a fireball spawns at the owner's head, so with any body segments at all it starts out overlapping its own second segment (`SEGMENT_SPACING` = 10 units, far less than the fireball's own blast radius). Without both filters, fireballs either killed their shooter (head case) or were silently absorbed by their own body (body case, and since a snake with only a head has no body to hit, this bug only showed up once a snake had grown past one segment) (fixed 2026-07-27, see DECISIONS.md). Food: head overlap → `massGained` **and** `foodEatenCount` (the score — a per-orb count, independent of the orb's mass value).
 - **`food.ts`** — `generateSpawnFields`, `tickFood` (Brownian, `applyHeadVacuumPull`, optional head consume). Deterministic RNG (`random01`, xorshift32).
 - **`gameLoop.ts`** — `tick`, `createEmptyWorld`, `applyMassLengthSync`, `MASS_PER_SEGMENT`, `IDLE_ABILITIES`. Merges `collision.ts`'s `foodEatenCount` into `World.foodEatenById` cumulatively (step 5, same pattern as `massGained`); replaces `World.snakeDrainPerSecById` wholesale each tick from `abilities.ts`'s `drainPerSec` (step 4, not cumulative).
 - **`server.ts`** — `startServer`, WS sessions, `buildTickInputs`, `mergePlayerInput`, `buildSnapshot`, `selectFoodForSnapshot` (proximity-aware cap via `MAX_FOOD_IN_SNAPSHOT`). `buildSnapshot` maps `foodEatenById`/`snakeDrainPerSecById` onto each snake's wire entry as `score`/`drainPerSec`.
-- **`renderer.ts`** — `parseGameSnapshot`, `GameRenderer` (lerp between last two snaps, camera follows `followPlayerId`). `SnapshotSnake.score`/`drainPerSec` are carried through the type but not drawn on canvas — the HUD reads them directly in `client-entry.ts` instead (see below).
+- **`renderer.ts`** — `parseGameSnapshot`, `GameRenderer` (lerp between last two snaps, camera follows `followPlayerId`). `SnapshotSnake.score`/`drainPerSec` are carried through the type but not drawn on canvas — the HUD reads them directly in `client-entry.ts` instead (see below). `SnapshotSnake.shield` **is** drawn: `drawShieldAura` fires a `drawShieldGlow` radial-gradient pass at every visible segment point before the opaque body discs are drawn. Because segments are packed closer together (`SEGMENT_SPACING`) than each glow's own radius, the individual halos overlap heavily and blend into one continuous border around the whole worm rather than a chain of separate blobs — this is deliberately how it achieves a "whole-body outline" look without computing an actual silhouette path, which Canvas 2D doesn't make cheap. A slow sine-wave alpha pulse (`now`-driven, no state stored) gives it a shimmer instead of a flat static overlay.
 - **`public/client-entry.ts`** — WS wiring, WASD → direction, ability keys, `?debugFood=1` overlay. `updateHudStats` reads `score`/`mass`/`drainPerSec` off the local player's snapshot entry (matched by `welcome.id`) and writes them into `#hud-score`/`#hud-mass`/`#hud-drain` in `public/index.html` (bottom-right of the toolbar, in that order) on every snapshot — plain DOM text updates, no canvas drawing involved. `mass` needed no new server plumbing; it was already on the wire, just never displayed anywhere.
 
 ### Gameplay constants (must match `docs/PRODUCT.md` — see §10 for the process that keeps them in sync)
@@ -146,7 +146,7 @@ table.
 
 **Welcome:** `{ "t": "welcome", "id": "p-1", "tickHz": 25, "bounds": {...} }`
 
-**Snap** (every tick): `{ "t": "snap", "tick", "snakes": [{id, alive, head, dir, length, mass, score, drainPerSec, visibleSegments}], "food": [{id, x, y, r}], "foodTotal", "fireballs": [{id, ownerId, x, y, r, sx, sy}] }`
+**Snap** (every tick): `{ "t": "snap", "tick", "snakes": [{id, alive, head, dir, length, mass, score, drainPerSec, shield, visibleSegments}], "food": [{id, x, y, r}], "foodTotal", "fireballs": [{id, ownerId, x, y, r, sx, sy}] }`
 
 - `sx, sy` — the fireball's spawn point. Added so the client can fade the
   projectile out as it nears `FIREBALL_MAX_RANGE_PX` without the server
@@ -155,6 +155,7 @@ table.
 - `score` — count of food orbs consumed (any kind), from `World.foodEatenById`. Cumulative, never decreases.
 - `drainPerSec` — live mass/sec being spent on a held ability right now, from `World.snakeDrainPerSecById`. Instantaneous; 0 when idle. Excludes the one-time fireball cost.
 - `mass` already existed on the wire before any of this — the HUD toolbar (`score`/`mass`/`drainPerSec`, in that order) is just the first place anything actually displayed it. PRODUCT.md's "mass number HUD" line predates this and was previously unbuilt.
+- `shield` — `Snake.state.shield`, i.e. whether the shield ability is currently active (post mass-check, from `tickAbilities`'s `shieldActive`). Added 2026-07-27 so the renderer can draw the shield VFX — it wasn't on the wire before, for any snake, which is the whole reason the ability "activated" (drained mass) with no visible effect.
 
 **Input:** `{ "t": "input", "d": { "direction": {x, y}, "fire", "shield", "boost", "turbo" } }`
 
@@ -167,6 +168,16 @@ table.
   no minimap code in `renderer.ts` or anywhere else. Background/implementation
   notes from the original build plan are preserved at
   `plans/archive/minimap.exec.md`. Tracked as future work, not a current bug.
+
+- **Shield doesn't block fireballs yet** — PRODUCT.md's Shield section
+  specifies a bounce mechanic (fireball bounces off, becomes non-lethal,
+  fades to black, despawns shortly after) and the Combat table says
+  "Fireball ↔ shield: See Shield." None of that exists in `collision.ts` —
+  the fireball-vs-head check has no shield condition at all; a shielded
+  player dies to a fireball exactly like an unshielded one. Shield currently
+  only does two things: drain mass (`abilities.ts`) and show the VFX
+  (`renderer.ts`, added 2026-07-27). Found while wiring up the VFX — the
+  visual and the mechanic it's supposed to represent aren't connected yet.
 
 Keep this section current: when a PRODUCT.md rule has no implementation yet,
 or an implementation detail has no PRODUCT.md rule, list it here so it isn't

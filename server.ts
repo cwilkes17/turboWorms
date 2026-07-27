@@ -152,6 +152,8 @@ export function buildSnapshot(world: World) {
       score: world.foodEatenById[s.id] ?? 0,
       /** Live mass/sec being spent on held abilities right now; 0 when nothing is draining. */
       drainPerSec: Number((world.snakeDrainPerSecById[s.id] ?? 0).toFixed(1)),
+      /** Was never on the wire before — renderer needs it to draw the shield VFX. */
+      shield: s.state.shield,
       visibleSegments: s.alive
         ? s.segments.slice(0, MAX_VISIBLE_SEGMENTS).map((p) => ({
             x: Math.round(p.x),
