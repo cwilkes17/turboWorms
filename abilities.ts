@@ -28,6 +28,9 @@ export const MASS_EPS = 1e-9
  */
 export const FIREBALL_MAX_RANGE_PX = 900
 
+/** Seconds that must pass after a successful fire before another is allowed (PRODUCT.md). */
+export const FIREBALL_COOLDOWN_SEC = 5
+
 export type SnakeWithMass = Snake & { mass: number }
 
 export type AbilityInput = {
@@ -80,8 +83,8 @@ function clampNonNegativeMass(m: number): number {
 /**
  * Applies resource costs and ability effects for one tick.
  *
- * Order (deterministic): fireball 10% (if triggered) → shield 1%/s of current mass →
- * turbo 10%/s or boost 2/s mass (turbo suppresses boost) → clamp mass.
+ * Order (deterministic): fireball 10% (if triggered and off cooldown) → shield 1%/s of
+ * current mass → turbo 10%/s or boost 2/s mass (turbo suppresses boost) → clamp mass.
  *
  * `Snake.speed` is not modified; use `effectiveSpeed` with `ctx.intrinsicSpeed` as the worm baseline.
  */
@@ -95,7 +98,15 @@ export function tickAbilities(
   const fireballsSpawned: FireballProjectile[] = []
   let nextFireballId = ctx.nextFireballId
 
-  if (input.fireballTriggered && snake.alive && mass > MASS_EPS) {
+  /**
+   * `fireballTriggered` reflects whatever the client last sent — which is `true` for the
+   * entire time the key is held (~45Hz), not just the initial press. A cooldown gate (not
+   * just an alive/mass check) is what makes holding the key equivalent to tapping it
+   * exactly on cadence, instead of firing every single tick and instantly draining mass.
+   */
+  let fireballCooldown = Math.max(0, (snake.state?.fireballCooldown ?? 0) - dt)
+
+  if (input.fireballTriggered && snake.alive && mass > MASS_EPS && fireballCooldown <= MASS_EPS) {
     const radius = headRadiusFromMass(mass)
     const head = snake.segments[0] ?? { x: 0, y: 0 }
     const spd = ctx.flatProjectileSpeed
@@ -111,6 +122,7 @@ export function tickAbilities(
     })
     nextFireballId += 1
     mass = clampNonNegativeMass(mass * (1 - FIREBALL_MASS_FRACTION))
+    fireballCooldown = FIREBALL_COOLDOWN_SEC
   }
 
   const alive = snake.alive
@@ -140,7 +152,7 @@ export function tickAbilities(
   const shieldActive = input.shieldHeld && snake.alive && mass > MASS_EPS
 
   return {
-    snake: { ...snake, mass },
+    snake: { ...snake, mass, state: { ...snake.state, fireballCooldown } },
     shieldActive,
     effectiveSpeed: ctx.intrinsicSpeed * speedMul,
     fireballsSpawned,

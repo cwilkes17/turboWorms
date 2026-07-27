@@ -111,6 +111,41 @@ test('fireball spawns on trigger and advances next tick integration', () => {
   assert.ok(fb2.position.x > fb1.position.x)
 })
 
+test('holding the fire input every tick only spends mass once, not per tick', () => {
+  // Reproduces the real bug: the client sends fireballTriggered:true on every input
+  // message for as long as the key is physically held, not just on the initial press.
+  // Without a cooldown gate, that meant a fireball fired (and its 10% mass cost was
+  // paid) on every single simulation tick while the key was down.
+  const id = 'holder'
+  const startMass = 1000
+  const w = createEmptyWorld({
+    bounds: { center: { x: 0, y: 0 }, radius: 10_000 },
+    spawnFields: [],
+    snakes: [snakeBase({ id, segments: [{ x: 0, y: 0 }], direction: 0 })],
+    snakeMassById: { [id]: startMass },
+    nextFireballId: 1,
+  })
+  const dt = 0.04
+  const held: TickInputs = {
+    [id]: { direction: 0, abilities: { ...IDLE_ABILITIES, fireballTriggered: true } },
+  }
+
+  let cur = w
+  const fireballIdsSeen = new Set<string>()
+  // 60 ticks * 0.04s = 2.4s of continuously "held" fire - well under the 5s cooldown.
+  for (let i = 0; i < 60; i++) {
+    cur = tick(cur, held, dt)
+    for (const fb of cur.fireballs) fireballIdsSeen.add(fb.id)
+  }
+
+  assert.equal(fireballIdsSeen.size, 1, 'only one fireball ever existed across 2.4s of holding fire')
+  assert.equal(
+    cur.snakeMassById[id],
+    startMass * 0.9,
+    'mass was spent exactly once, not once per tick'
+  )
+})
+
 test('fireball does not kill a far away snake while traveling', () => {
   const a = 'a'
   const b = 'b'

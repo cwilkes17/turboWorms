@@ -4,6 +4,7 @@ import type { Snake } from '../contracts/snake'
 import {
   BOOST_MASS_DRAIN_PER_SEC,
   BOOST_SPEED_MUL,
+  FIREBALL_COOLDOWN_SEC,
   FIREBALL_MASS_FRACTION,
   MASS_EPS,
   SHIELD_DRAIN_PER_SEC,
@@ -81,6 +82,53 @@ test('fireball requires positive mass while alive', () => {
   const outDead = tickAbilities(dead, input, 0.05, ctx())
   assert.equal(outDead.fireballsSpawned.length, 0)
   assert.equal(outDead.snake.mass, dead.mass)
+})
+
+test('holding the fire trigger does not refire before the cooldown elapses', () => {
+  // Simulates the real client behavior: `fireballTriggered` stays true every tick for
+  // as long as the key is held, not just on the initial press. Chains several ticks by
+  // feeding each tick's returned snake (with its updated cooldown) into the next.
+  let s = worm({ mass: 1000 })
+  const heldInput: AbilityInput = { ...idleInput, fireballTriggered: true }
+  const dt = 0.1
+
+  const first = tickAbilities(s, heldInput, dt, ctx({ nextFireballId: 1 }))
+  assert.equal(first.fireballsSpawned.length, 1, 'first tick with trigger held fires once')
+  s = first.snake
+
+  let totalSpawned = first.fireballsSpawned.length
+  let nextId = first.nextFireballId
+  // Advance almost to the cooldown boundary (another ~4.8s) while still "holding" fire.
+  for (let elapsed = dt; elapsed < FIREBALL_COOLDOWN_SEC - dt; elapsed += dt) {
+    const out = tickAbilities(s, heldInput, dt, ctx({ nextFireballId: nextId }))
+    totalSpawned += out.fireballsSpawned.length
+    nextId = out.nextFireballId
+    s = out.snake
+  }
+
+  assert.equal(totalSpawned, 1, 'no additional fireballs while cooldown is still active')
+
+  // Push past the full cooldown window - holding fire should now be allowed to fire again.
+  const afterCooldown = tickAbilities(s, heldInput, FIREBALL_COOLDOWN_SEC, ctx({ nextFireballId: nextId }))
+  assert.equal(afterCooldown.fireballsSpawned.length, 1, 'fires again once cooldown has fully elapsed')
+})
+
+test('a single tap and a held key produce the same result: one shot, then cooldown', () => {
+  const tappedOnce = tickAbilities(
+    worm({ mass: 500 }),
+    { ...idleInput, fireballTriggered: true },
+    0.02,
+    ctx({ nextFireballId: 1 })
+  )
+  const heldOneTick = tickAbilities(
+    worm({ mass: 500 }),
+    { ...idleInput, fireballTriggered: true },
+    0.02,
+    ctx({ nextFireballId: 1 })
+  )
+  assert.deepEqual(tappedOnce.fireballsSpawned, heldOneTick.fireballsSpawned)
+  assert.equal(tappedOnce.snake.state.fireballCooldown, FIREBALL_COOLDOWN_SEC)
+  assert.equal(heldOneTick.snake.state.fireballCooldown, FIREBALL_COOLDOWN_SEC)
 })
 
 test('shield drains 1% of mass per second applied after optional fireball', () => {

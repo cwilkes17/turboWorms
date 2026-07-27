@@ -91,6 +91,31 @@ test('fireball never kills its own owner, even overlapping the owner head at spa
   assert.equal(out.fireballs.length, 1)
 })
 
+test('fireball passes through its own owner\'s body untouched', () => {
+  // Regression test: fireballs spawn at the owner's head, so with any body segments
+  // at all (SEGMENT_SPACING = 10 units apart) the projectile starts out overlapping
+  // its own second segment. It must not be absorbed by its own body, or fireballs
+  // would only ever work for a snake that's a single head with no body.
+  const snake = worm({
+    id: 'long-shooter',
+    segments: [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 20, y: 0 },
+    ],
+  })
+  const ownFireball = fb({
+    id: 'fb-own-body',
+    ownerId: 'long-shooter',
+    position: { x: 0, y: 0 },
+    radius: 5,
+    velocity: { x: 40, y: 0 },
+  })
+  const out = resolveCollisions([snake], [ownFireball], [], opts())
+  assert.equal(out.fireballs.length, 1)
+  assert.equal(out.snakes[0].alive, true)
+})
+
 test('fireball body overlap removes projectile but leaves snake alive', () => {
   const snake = worm({
     id: 'long',

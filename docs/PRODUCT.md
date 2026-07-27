@@ -68,7 +68,8 @@ Client may send inputs often; **server is authoritative** for all outcomes.
 | Your head ↔ enemy body    | You die                                                  |
 | Your head ↔ your own body | **No death**                                             |
 | Fireball ↔ enemy **head** | Target dies; projectile removed                          |
-| Fireball ↔ **body** (any) | Projectile removed; **snake does not die** from body hit |
+| Fireball ↔ **enemy body**  | Projectile removed; **snake does not die** from body hit |
+| Fireball ↔ **its own owner** (head or body) | **Never interacts** — passes through untouched, same as your own body never killing you |
 | Fireball ↔ **shield**     | See Shield                                               |
 
 

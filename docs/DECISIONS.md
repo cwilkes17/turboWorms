@@ -11,6 +11,28 @@ directly, since there's only ever one current structure worth documenting).
 
 ---
 
+## 2026-07-27 — Fireball cooldown actually wired up (bug fix)
+
+- **Bug:** holding the fire key caused "strange behavior" — in practice, mass
+  draining almost instantly. Fireballs also appeared to only ever fire once
+  per long stretch regardless of tapping.
+- **Root cause:** the client sends `fire: true` on every input packet for the
+  entire duration the key is held (~45Hz), not just on the initial press.
+  `Snake.state.fireballCooldown` existed in the type since the start of the
+  project but was never read or written anywhere — `tickAbilities` only
+  checked `alive` and `mass > 0` before spawning. Result: a held key fired
+  (and paid the 10% mass cost) on every single 25Hz simulation tick.
+- **Fix:** `tickAbilities` now decrements `state.fireballCooldown` by `dt`
+  each tick and only allows a new fireball when it's reached zero, resetting
+  it to `FIREBALL_COOLDOWN_SEC = 5` on a successful fire. This was already
+  the documented PRODUCT.md rule ("5 second cooldown after a successful
+  fire") — it just wasn't implemented.
+- **Why this satisfies "holding should be no different than pressing":**
+  with the cooldown gate, holding the key continuously produces the exact
+  same result as tapping it at the optimal moment every 5 seconds — one shot
+  the instant the cooldown clears, no more. A single tap and a held key
+  produce identical output (see `tests/abilities.test.ts`).
+
 ## 2026-07-27 — Fireball never lethal to its own owner (bug fix)
 
 - **Bug:** pressing fire made the shooter's own worm disappear instantly, and
@@ -31,6 +53,24 @@ directly, since there's only ever one current structure worth documenting).
   encoded the bug (`ownerId` equal to the victim's own id) was corrected to
   use a distinct owner/victim, since it was unintentionally asserting the bug
   as correct behavior.
+
+## 2026-07-27 — Fireball no longer absorbed by its own owner's body (bug fix)
+
+- **Bug:** fireballs only ever worked for a snake that was a single head
+  segment. As soon as a snake had any body (length > 1), pressing fire spent
+  the mass but no fireball appeared.
+- **Root cause:** same shape as the head-lethality bug above, but in the
+  body-hit branch of `resolveCollisions`. A fireball spawns at the owner's
+  head; the owner's second segment sits `SEGMENT_SPACING` (10 units) away —
+  much closer than the fireball's own blast radius (which scales with mass
+  and is often 15-30+ units). The body-hit loop didn't exclude the
+  fireball's own owner, so it was removed as "absorbed by a body hit" on the
+  same tick it spawned, every time, for any snake with a body.
+- **Fix:** exclude `fb.ownerId` from body-hit candidates too, mirroring the
+  head-hit fix. Also corrected PRODUCT.md's combat table, which said
+  "Fireball ↔ body (any)" — ambiguous, and read literally, wrong; changed to
+  explicitly say "enemy body" and added a row stating a fireball never
+  interacts with its own owner at all (head or body).
 
 ## 2026-07-27 — Fireball range/fade-out added (new rule)
 

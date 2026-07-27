@@ -202,6 +202,13 @@ export function resolveCollisions(
     if (!removed) {
       const bodies = cand
         .filter((it): it is Extract<GridItem, { kind: 'body' }> => it.kind === 'body')
+        /** Same reasoning as the head filter above: a fireball spawns at its owner's
+         *  head, so with any body segments at all it starts out only SEGMENT_SPACING
+         *  (10 units) from its own second segment — far closer than the fireball's own
+         *  blast radius. Without this filter every fireball fired by a snake longer
+         *  than one segment was silently absorbed by its own body on the spawn tick,
+         *  which is why fireballs only ever "worked" for a snake that was just a head. */
+        .filter((b) => b.snakeId !== fb.ownerId)
         .sort(cmpBody)
       for (const b of bodies) {
         const owner = snakes.find((s) => s.id === b.snakeId)

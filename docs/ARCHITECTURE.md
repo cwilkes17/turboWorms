@@ -114,8 +114,9 @@ table.
 ## 7. Module reference
 
 - **`movement.ts`** — `simulateMovement` (head along `cos/sin(dir)*speed*dt`, body re-spaced at `SEGMENT_SPACING`); `steerHeadingToward` (turn-rate cap, `DEFAULT_HEAD_TURN_RAD_PER_SEC = 12`).
-- **`abilities.ts`** — `tickAbilities`. Order per tick: fireball cost → shield drain → turbo/boost drain → clamp mass. See constants table below.
-- **`collision.ts`** — `resolveCollisions`, uniform grid over segments + circle tests. Self body never kills the owner (intentional); enemy body kills the attacking head. A fireball's own owner is filtered out of its head-hit candidates for the same reason — otherwise a fireball spawned at the owner's head still overlaps that head on the tick it's created and kills its own shooter (fixed 2026-07-27, see DECISIONS.md). Food: head overlap → `massGained`.
+- **`abilities.ts`** — `tickAbilities`. Order per tick: fireball cost (gated by `state.fireballCooldown`) → shield drain → turbo/boost drain → clamp mass. See constants table below.
+  - `fireballTriggered` reflects whatever the client last sent, which is `true` for the *entire* time the key is held (~45Hz input send rate), not just the initial press. The cooldown gate (not just alive/mass checks) is what makes holding the key equivalent to tapping it exactly on cadence — without it, a held key fires (and pays the mass cost) on every single tick. Fixed 2026-07-27; `Snake.state.fireballCooldown` existed in the type from the start but was never read or written until then.
+- **`collision.ts`** — `resolveCollisions`, uniform grid over segments + circle tests. Self body never kills the owner (intentional); enemy body kills the attacking head. A fireball's own owner is filtered out of **both** its head-hit and body-hit candidates for the same reason — a fireball spawns at the owner's head, so with any body segments at all it starts out overlapping its own second segment (`SEGMENT_SPACING` = 10 units, far less than the fireball's own blast radius). Without both filters, fireballs either killed their shooter (head case) or were silently absorbed by their own body (body case, and since a snake with only a head has no body to hit, this bug only showed up once a snake had grown past one segment) (fixed 2026-07-27, see DECISIONS.md). Food: head overlap → `massGained`.
 - **`food.ts`** — `generateSpawnFields`, `tickFood` (Brownian, `applyHeadVacuumPull`, optional head consume). Deterministic RNG (`random01`, xorshift32).
 - **`gameLoop.ts`** — `tick`, `createEmptyWorld`, `applyMassLengthSync`, `MASS_PER_SEGMENT`, `IDLE_ABILITIES`.
 - **`server.ts`** — `startServer`, WS sessions, `buildTickInputs`, `mergePlayerInput`, `buildSnapshot`, `selectFoodForSnapshot` (proximity-aware cap via `MAX_FOOD_IN_SNAPSHOT`).
@@ -135,6 +136,7 @@ table.
 | `DEFAULT_HEAD_TURN_RAD_PER_SEC` | `movement.ts` | 12 |
 | `MASS_PER_SEGMENT` | `gameLoop.ts` | 10 |
 | `FIREBALL_MAX_RANGE_PX` | `abilities.ts` | 900 |
+| `FIREBALL_COOLDOWN_SEC` | `abilities.ts` | 5 |
 
 *(As of 2026-07-27, these were just reconciled — code previously had fireball at 25% and shield at 5%/s, which contradicted PRODUCT.md; code was updated to match the spec. `FIREBALL_MAX_RANGE_PX` was added the same day as a new rule — see DECISIONS.md.)*
 
