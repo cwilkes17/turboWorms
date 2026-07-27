@@ -26,15 +26,39 @@
       line-height: 1.35;
       border-top: 1px solid #1f2a38;
       background: rgba(10, 14, 20, 0.92);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
     }
+    #hud-help {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    #hud-stats {
+      flex: 0 0 auto;
+      display: flex;
+      gap: 14px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    #hud-score { color: #c8e0ff; }
+    #hud-drain { color: #9fb4c9; }
+    #hud-drain.active { color: #ff9d7a; }
     code { color: #c8e0ff; }
   </style>
 </head>
 <body>
   <canvas id="c" width="960" height="540" aria-label="Game view"></canvas>
   <div id="hud">
-    Wasd / arrows: move · <code>Space</code> fire · <code>Q</code> shield · hold <code>Shift</code> boost · <code>E</code> turbo.
-    Websocket · add <code>?ws=ws://host:port</code> when not served from game server (e.g. file://).
+    <div id="hud-help">
+      Wasd / arrows: move · <code>Space</code> fire · <code>Q</code> shield · hold <code>Shift</code> boost · <code>E</code> turbo.
+      Websocket · add <code>?ws=ws://host:port</code> when not served from game server (e.g. file://).
+    </div>
+    <div id="hud-stats">
+      <span id="hud-score">SCORE: 0</span>
+      <span id="hud-drain">DRAIN: 0/s</span>
+    </div>
   </div>
   <script src="/client.bundle.js"></script>
 </body>

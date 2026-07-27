@@ -205,6 +205,26 @@ test('head collects nearest food deterministically when two heads overlap orb', 
   assert.equal(out.foods.length, 0)
   assert.equal(out.massGained['alpha'], 3)
   assert.equal(out.massGained['zebra'], undefined)
+  assert.equal(out.foodEatenCount['alpha'], 1)
+  assert.equal(out.foodEatenCount['zebra'], undefined)
+})
+
+test('foodEatenCount is a per-orb count, independent of orb mass value', () => {
+  const s = worm({ id: 'muncher', segments: [{ x: 0, y: 0 }] })
+  const orbs = [
+    food({ id: 'small', position: { x: 0, y: 0 }, radius: 14, mass: 1 }),
+    food({ id: 'big-corpse-orb', position: { x: 0, y: 0 }, radius: 14, mass: 5 }),
+  ]
+  // Both orbs sit on top of the same head; resolve one at a time like the real loop would
+  // across ticks (a single resolveCollisions call only lets one orb be picked up per head
+  // per pass through `foods`, since the head itself doesn't move mid-call).
+  const first = resolveCollisions([s], [], [orbs[0]!], opts())
+  assert.equal(first.foodEatenCount['muncher'], 1)
+  assert.equal(first.massGained['muncher'], 1)
+
+  const second = resolveCollisions([s], [], [orbs[1]!], opts())
+  assert.equal(second.foodEatenCount['muncher'], 1, 'count is per-orb, not scaled by mass')
+  assert.equal(second.massGained['muncher'], 5)
 })
 
 test('distant snakes do not interact through the grid buckets', () => {

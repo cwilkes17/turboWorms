@@ -85,6 +85,8 @@ server/tick. Anything that only changes how it looks → `renderer.ts`.
 | `food[]` | Drifting orbs |
 | `fireballs[]` | Projectiles |
 | `snakeMassById` | **Authoritative** mass map — source of truth for resource pool |
+| `foodEatenById` | Score — cumulative count of orbs consumed per snake; only ever increases |
+| `snakeDrainPerSecById` | Live ability drain rate (mass/sec) per snake; **instantaneous**, fully replaced every tick, not cumulative |
 | `foodRng`, `foodNextOrbId`, `foodSpawnAccumSec` | Food subsystem counters |
 | `nextFireballId`, `nextFoodSpawnId` | Id allocators |
 | `tick` | Monotonic frame index |
@@ -114,14 +116,14 @@ table.
 ## 7. Module reference
 
 - **`movement.ts`** — `simulateMovement` (head along `cos/sin(dir)*speed*dt`, body re-spaced at `SEGMENT_SPACING`); `steerHeadingToward` (turn-rate cap, `DEFAULT_HEAD_TURN_RAD_PER_SEC = 12`).
-- **`abilities.ts`** — `tickAbilities`. Order per tick: fireball cost (gated by `state.fireballCooldown`) → shield drain → turbo/boost drain → clamp mass. See constants table below.
+- **`abilities.ts`** — `tickAbilities`. Order per tick: fireball cost (gated by `state.fireballCooldown`) → shield drain → turbo/boost drain → clamp mass. Also returns `drainPerSec` — the live mass/sec spent on held abilities this tick (shield + turbo/boost), deliberately excluding the one-time fireball cost, which is a burst spend rather than an ongoing drain. See constants table below.
   - `fireballTriggered` reflects whatever the client last sent, which is `true` for the *entire* time the key is held (~45Hz input send rate), not just the initial press. The cooldown gate (not just alive/mass checks) is what makes holding the key equivalent to tapping it exactly on cadence — without it, a held key fires (and pays the mass cost) on every single tick. Fixed 2026-07-27; `Snake.state.fireballCooldown` existed in the type from the start but was never read or written until then.
-- **`collision.ts`** — `resolveCollisions`, uniform grid over segments + circle tests. Self body never kills the owner (intentional); enemy body kills the attacking head. A fireball's own owner is filtered out of **both** its head-hit and body-hit candidates for the same reason — a fireball spawns at the owner's head, so with any body segments at all it starts out overlapping its own second segment (`SEGMENT_SPACING` = 10 units, far less than the fireball's own blast radius). Without both filters, fireballs either killed their shooter (head case) or were silently absorbed by their own body (body case, and since a snake with only a head has no body to hit, this bug only showed up once a snake had grown past one segment) (fixed 2026-07-27, see DECISIONS.md). Food: head overlap → `massGained`.
+- **`collision.ts`** — `resolveCollisions`, uniform grid over segments + circle tests. Self body never kills the owner (intentional); enemy body kills the attacking head. A fireball's own owner is filtered out of **both** its head-hit and body-hit candidates for the same reason — a fireball spawns at the owner's head, so with any body segments at all it starts out overlapping its own second segment (`SEGMENT_SPACING` = 10 units, far less than the fireball's own blast radius). Without both filters, fireballs either killed their shooter (head case) or were silently absorbed by their own body (body case, and since a snake with only a head has no body to hit, this bug only showed up once a snake had grown past one segment) (fixed 2026-07-27, see DECISIONS.md). Food: head overlap → `massGained` **and** `foodEatenCount` (the score — a per-orb count, independent of the orb's mass value).
 - **`food.ts`** — `generateSpawnFields`, `tickFood` (Brownian, `applyHeadVacuumPull`, optional head consume). Deterministic RNG (`random01`, xorshift32).
-- **`gameLoop.ts`** — `tick`, `createEmptyWorld`, `applyMassLengthSync`, `MASS_PER_SEGMENT`, `IDLE_ABILITIES`.
-- **`server.ts`** — `startServer`, WS sessions, `buildTickInputs`, `mergePlayerInput`, `buildSnapshot`, `selectFoodForSnapshot` (proximity-aware cap via `MAX_FOOD_IN_SNAPSHOT`).
-- **`renderer.ts`** — `parseGameSnapshot`, `GameRenderer` (lerp between last two snaps, camera follows `followPlayerId`).
-- **`public/client-entry.ts`** — WS wiring, WASD → direction, ability keys, `?debugFood=1` overlay.
+- **`gameLoop.ts`** — `tick`, `createEmptyWorld`, `applyMassLengthSync`, `MASS_PER_SEGMENT`, `IDLE_ABILITIES`. Merges `collision.ts`'s `foodEatenCount` into `World.foodEatenById` cumulatively (step 5, same pattern as `massGained`); replaces `World.snakeDrainPerSecById` wholesale each tick from `abilities.ts`'s `drainPerSec` (step 4, not cumulative).
+- **`server.ts`** — `startServer`, WS sessions, `buildTickInputs`, `mergePlayerInput`, `buildSnapshot`, `selectFoodForSnapshot` (proximity-aware cap via `MAX_FOOD_IN_SNAPSHOT`). `buildSnapshot` maps `foodEatenById`/`snakeDrainPerSecById` onto each snake's wire entry as `score`/`drainPerSec`.
+- **`renderer.ts`** — `parseGameSnapshot`, `GameRenderer` (lerp between last two snaps, camera follows `followPlayerId`). `SnapshotSnake.score`/`drainPerSec` are carried through the type but not drawn on canvas — the HUD reads them directly in `client-entry.ts` instead (see below).
+- **`public/client-entry.ts`** — WS wiring, WASD → direction, ability keys, `?debugFood=1` overlay. `updateHudStats` reads `score`/`drainPerSec` off the local player's snapshot entry (matched by `welcome.id`) and writes them into `#hud-score`/`#hud-drain` in `public/index.html` (bottom-right of the toolbar) on every snapshot — plain DOM text updates, no canvas drawing involved.
 
 ### Gameplay constants (must match `docs/PRODUCT.md` — see §10 for the process that keeps them in sync)
 
@@ -144,12 +146,14 @@ table.
 
 **Welcome:** `{ "t": "welcome", "id": "p-1", "tickHz": 25, "bounds": {...} }`
 
-**Snap** (every tick): `{ "t": "snap", "tick", "snakes": [{id, alive, head, dir, length, mass, visibleSegments}], "food": [{id, x, y, r}], "foodTotal", "fireballs": [{id, ownerId, x, y, r, sx, sy}] }`
+**Snap** (every tick): `{ "t": "snap", "tick", "snakes": [{id, alive, head, dir, length, mass, score, drainPerSec, visibleSegments}], "food": [{id, x, y, r}], "foodTotal", "fireballs": [{id, ownerId, x, y, r, sx, sy}] }`
 
 - `sx, sy` — the fireball's spawn point. Added so the client can fade the
   projectile out as it nears `FIREBALL_MAX_RANGE_PX` without the server
   needing to send a life fraction every tick. Purely cosmetic on the client
   side — the server is what actually removes the fireball at max range.
+- `score` — count of food orbs consumed (any kind), from `World.foodEatenById`. Cumulative, never decreases.
+- `drainPerSec` — live mass/sec being spent on a held ability right now, from `World.snakeDrainPerSecById`. Instantaneous; 0 when idle. Excludes the one-time fireball cost.
 
 **Input:** `{ "t": "input", "d": { "direction": {x, y}, "fire", "shield", "boost", "turbo" } }`
 

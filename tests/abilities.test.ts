@@ -137,6 +137,7 @@ test('shield drains 1% of mass per second applied after optional fireball', () =
   const out = tickAbilities(base, input, 1, ctx())
   assert.ok(Math.abs(out.snake.mass - base.mass * (1 - SHIELD_DRAIN_PER_SEC)) < 1e-9)
   assert.equal(out.shieldActive, true)
+  assert.ok(Math.abs(out.drainPerSec - base.mass * SHIELD_DRAIN_PER_SEC) < 1e-9)
 })
 
 test('boost adds +50% speed and consumes 2 mass per second when affordable', () => {
@@ -146,6 +147,7 @@ test('boost adds +50% speed and consumes 2 mass per second when affordable', () 
   const out = tickAbilities(s, input, 1, baseline)
   assert.ok(Math.abs(out.snake.mass - (20 - BOOST_MASS_DRAIN_PER_SEC)) < 1e-9)
   assert.ok(Math.abs(out.effectiveSpeed - 120 * BOOST_SPEED_MUL) < 1e-9)
+  assert.ok(Math.abs(out.drainPerSec - BOOST_MASS_DRAIN_PER_SEC) < 1e-9)
 })
 
 test('boost does not activate if constant drain cannot be paid for this timestep', () => {
@@ -167,6 +169,24 @@ test('turbo grants +200% speed and consumes 10% mass per second, suppressing boo
   const out = tickAbilities(s, input, 1, ctx({ intrinsicSpeed: 10 }))
   assert.ok(Math.abs(out.snake.mass - 100 * (1 - TURBO_DRAIN_PER_SEC)) < 1e-9)
   assert.ok(Math.abs(out.effectiveSpeed - 10 * TURBO_SPEED_MUL) < 1e-9)
+  assert.ok(Math.abs(out.drainPerSec - 100 * TURBO_DRAIN_PER_SEC) < 1e-9)
+})
+
+test('drainPerSec is 0 when no ability is held, even though mass exists', () => {
+  const out = tickAbilities(worm({ mass: 300 }), idleInput, 1, ctx())
+  assert.equal(out.drainPerSec, 0)
+})
+
+test('drainPerSec excludes the one-time fireball cost (it is a burst, not a drain)', () => {
+  const out = tickAbilities(
+    worm({ mass: 300 }),
+    { ...idleInput, fireballTriggered: true },
+    1,
+    ctx({ nextFireballId: 1 })
+  )
+  assert.equal(out.fireballsSpawned.length, 1)
+  assert.ok(out.snake.mass < 300, 'mass was in fact spent on the fireball')
+  assert.equal(out.drainPerSec, 0, 'but that spend does not show up as a live drain rate')
 })
 
 test('shield active flag drops off when drained mass hits zero', () => {

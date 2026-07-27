@@ -111,6 +111,38 @@ test('fireball spawns on trigger and advances next tick integration', () => {
   assert.ok(fb2.position.x > fb1.position.x)
 })
 
+test('foodEatenById accumulates across ticks; snakeDrainPerSecById reflects only the current tick', () => {
+  const id = 'scorer'
+  const orb: FoodOrb = {
+    id: 'o1',
+    fieldId: 'f1',
+    position: { x: 0, y: 0 },
+    velocity: { x: 0, y: 0 },
+    radius: 2,
+    mass: 5,
+    kind: 'normal',
+  }
+  const w = createEmptyWorld({
+    bounds: { center: { x: 0, y: 0 }, radius: 10_000 },
+    spawnFields: [],
+    snakes: [snakeBase({ id, segments: [{ x: 0, y: 0 }] })],
+    food: [orb],
+    snakeMassById: { [id]: 100 },
+    foodEatenById: { [id]: 3 }, // player already had a score of 3 from earlier ticks
+  })
+
+  const shieldOn: TickInputs = { [id]: { direction: 0, abilities: { ...IDLE_ABILITIES, shieldHeld: true } } }
+  const idle: TickInputs = { [id]: { direction: 0, abilities: IDLE_ABILITIES } }
+
+  const t1 = tick(w, shieldOn, 0.04)
+  assert.equal(t1.foodEatenById[id], 4, 'score went up by exactly one for the one orb eaten')
+  assert.ok((t1.snakeDrainPerSecById[id] ?? 0) > 0, 'drain rate is live while shield is held')
+
+  const t2 = tick(t1, idle, 0.04)
+  assert.equal(t2.foodEatenById[id], 4, 'score does not change on a tick with no food eaten')
+  assert.equal(t2.snakeDrainPerSecById[id], 0, 'drain rate drops to 0 the instant the ability is released')
+})
+
 test('holding the fire input every tick only spends mass once, not per tick', () => {
   // Reproduces the real bug: the client sends fireballTriggered:true on every input
   // message for as long as the key is physically held, not just on the initial press.

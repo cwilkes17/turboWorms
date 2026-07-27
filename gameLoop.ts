@@ -84,6 +84,8 @@ function cloneWorld(w: World): World {
     food: w.food.map(cloneFood),
     fireballs: w.fireballs.map(cloneFb),
     snakeMassById: { ...w.snakeMassById },
+    foodEatenById: { ...w.foodEatenById },
+    snakeDrainPerSecById: { ...w.snakeDrainPerSecById },
     foodSpawnAccumSec: { ...w.foodSpawnAccumSec },
   }
 }
@@ -263,6 +265,8 @@ export function tick(world: World, inputs: TickInputs, deltaTime: number, option
   let nextFbId = w.nextFireballId
   let fireballs = w.fireballs.map(cloneFb)
   const snakesById = new Map(sortSnakes(w.snakes).map((s) => [s.id, s]))
+  /** Instantaneous, not cumulative — fully replaced each tick (see World.snakeDrainPerSecById). */
+  const drainById: Record<string, number> = {}
 
   for (const snake of sortSnakes(w.snakes)) {
     if (!snake.alive) continue
@@ -286,6 +290,7 @@ export function tick(world: World, inputs: TickInputs, deltaTime: number, option
     )
 
     nextFbId = payload.nextFireballId
+    drainById[snake.id] = payload.drainPerSec
 
     for (const spawned of payload.fireballsSpawned) {
       fireballs.push({
@@ -307,6 +312,7 @@ export function tick(world: World, inputs: TickInputs, deltaTime: number, option
     ...w,
     snakes: sortSnakes([...snakesById.values()]),
     snakeMassById: massById,
+    snakeDrainPerSecById: drainById,
     nextFireballId: nextFbId,
     fireballs,
   }
@@ -329,6 +335,12 @@ export function tick(world: World, inputs: TickInputs, deltaTime: number, option
     mergedMass[id] = (mergedMass[id] ?? 0) + gain
   }
 
+  /** Cumulative, unlike snakeDrainPerSecById — score only ever goes up. */
+  const mergedFoodEaten: Record<string, number> = { ...w.foodEatenById }
+  for (const [id, count] of Object.entries(hit.foodEatenCount)) {
+    mergedFoodEaten[id] = (mergedFoodEaten[id] ?? 0) + count
+  }
+
   const mergedFood = sortFoods([...hit.foods.map(cloneFood), ...hit.spawnedFoodFromDeaths.map(cloneFood)])
 
   w = {
@@ -337,6 +349,7 @@ export function tick(world: World, inputs: TickInputs, deltaTime: number, option
     fireballs: hit.fireballs.map(cloneFb),
     food: mergedFood,
     snakeMassById: mergedMass,
+    foodEatenById: mergedFoodEaten,
     nextFoodSpawnId: hit.nextFoodSpawnId,
   }
 
@@ -373,6 +386,8 @@ export function createEmptyWorld(overrides: Partial<World> & Pick<World, 'bounds
     food: overrides.food ?? [],
     fireballs: overrides.fireballs ?? [],
     snakeMassById: overrides.snakeMassById ?? {},
+    foodEatenById: overrides.foodEatenById ?? {},
+    snakeDrainPerSecById: overrides.snakeDrainPerSecById ?? {},
     foodRng: overrides.foodRng ?? 0x9e3779b1,
     foodNextOrbId: overrides.foodNextOrbId ?? 1,
     foodSpawnAccumSec: overrides.foodSpawnAccumSec ?? {},

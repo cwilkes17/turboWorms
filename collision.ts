@@ -20,6 +20,8 @@ export type CollisionResult = {
   fireballs: FireballProjectile[]
   foods: FoodOrb[]
   massGained: Record<string, number>
+  /** Count of orbs consumed this tick per snake id (any kind, including corpse food) — the score. */
+  foodEatenCount: Record<string, number>
   spawnedFoodFromDeaths: FoodOrb[]
   nextFoodSpawnId: number
 }
@@ -267,6 +269,7 @@ export function resolveCollisions(
   /** Food pickups only for snakes still flagged alive */
 
   const consumedIds = new Set<string>()
+  const foodEatenCount: Record<string, number> = {}
   for (const orb of foods) {
     const buckets = buildBuckets(snakes, cellSize, headR, bodyR)
     const headsNear = neighbors(buckets, orb.position, cellSize)
@@ -280,6 +283,8 @@ export function resolveCollisions(
 
       if (circlesOverlap(orb.position.x, orb.position.y, orb.radius, h.pos.x, h.pos.y, headR)) {
         massGained[h.snakeId] = (massGained[h.snakeId] ?? 0) + orb.mass
+        /** Score = count of orbs consumed (any kind, including corpse food), not mass. */
+        foodEatenCount[h.snakeId] = (foodEatenCount[h.snakeId] ?? 0) + 1
         consumedIds.add(orb.id)
         break
       }
@@ -304,6 +309,7 @@ export function resolveCollisions(
     fireballs,
     foods,
     massGained,
+    foodEatenCount,
     spawnedFoodFromDeaths,
     nextFoodSpawnId,
   }

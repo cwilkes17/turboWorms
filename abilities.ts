@@ -69,6 +69,12 @@ export type AbilityTickResult = {
   fireballsSpawned: FireballProjectile[]
   /** Pass through to next tick unchanged if no projectile spawned */
   nextFireballId: number
+  /**
+   * Mass/sec currently being spent on held abilities (shield + turbo/boost) — for HUD
+   * display. Deliberately excludes the one-time fireball cost, which is a burst spend,
+   * not an ongoing "drain" in the sense a live rate readout implies.
+   */
+  drainPerSec: number
 }
 
 /** Head radius scales with sqrt(mass) with a small floor. */
@@ -126,8 +132,13 @@ export function tickAbilities(
   }
 
   const alive = snake.alive
+  /** Mass/sec from held abilities only — the one-time fireball cost above is not a "drain". */
+  let drainPerSec = 0
+
   if (alive && mass > MASS_EPS && input.shieldHeld) {
-    mass -= mass * SHIELD_DRAIN_PER_SEC * dt
+    const shieldRate = mass * SHIELD_DRAIN_PER_SEC
+    mass -= shieldRate * dt
+    drainPerSec += shieldRate
   }
   mass = clampNonNegativeMass(mass)
 
@@ -140,10 +151,13 @@ export function tickAbilities(
 
   let speedMul = 1
   if (turboDesired) {
-    mass -= mass * TURBO_DRAIN_PER_SEC * dt
+    const turboRate = mass * TURBO_DRAIN_PER_SEC
+    mass -= turboRate * dt
+    drainPerSec += turboRate
     speedMul = TURBO_SPEED_MUL
   } else if (boostDesired) {
     mass -= BOOST_MASS_DRAIN_PER_SEC * dt
+    drainPerSec += BOOST_MASS_DRAIN_PER_SEC
     speedMul = BOOST_SPEED_MUL
   }
 
@@ -157,5 +171,6 @@ export function tickAbilities(
     effectiveSpeed: ctx.intrinsicSpeed * speedMul,
     fireballsSpawned,
     nextFireballId,
+    drainPerSec,
   }
 }

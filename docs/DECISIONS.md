@@ -11,6 +11,26 @@ directly, since there's only ever one current structure worth documenting).
 
 ---
 
+## 2026-07-27 — Score + live drain HUD added (new feature)
+
+- **What:** `SCORE: N` and `DRAIN: -X.X/s` added to the bottom-right of the
+  toolbar (`public/index.html`, below the canvas).
+- **Score = count of food orbs consumed, not mass gained.** Chosen because
+  the feature request explicitly said "current number of food consumed."
+  Mass already has its own HUD number (existing); score is a distinct,
+  always-increasing counter — corpse food counts the same as a single normal
+  orb (1 orb = +1 score, regardless of mass value). If a future request wants
+  score to weight by orb value or add kills, that's a new decision, not an
+  assumption to bake in silently.
+- **Drain excludes the one-time fireball cost.** "Live ability drain" reads
+  as an ongoing rate (shield/boost/turbo), not a burst spend. Showing the
+  fireball's 10% cost as a momentary drain spike would be misleading — it's
+  not a rate, it's a lump sum. If this reads wrong in play, that's tunable
+  here, not a silent renderer change.
+- Both values are server-authoritative (`World.foodEatenById`,
+  `World.snakeDrainPerSecById`) and sent on the snapshot wire as `score` /
+  `drainPerSec` — the client only formats and displays them.
+
 ## 2026-07-27 — Fireball cooldown actually wired up (bug fix)
 
 - **Bug:** holding the fire key caused "strange behavior" — in practice, mass

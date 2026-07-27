@@ -148,6 +148,10 @@ export function buildSnapshot(world: World) {
       dir: Number(s.direction.toFixed(5)),
       length: s.segments.length,
       mass: Math.round(world.snakeMassById[s.id] ?? 0),
+      /** Score: count of food orbs consumed (any kind), not mass. Never decreases. */
+      score: world.foodEatenById[s.id] ?? 0,
+      /** Live mass/sec being spent on held abilities right now; 0 when nothing is draining. */
+      drainPerSec: Number((world.snakeDrainPerSecById[s.id] ?? 0).toFixed(1)),
       visibleSegments: s.alive
         ? s.segments.slice(0, MAX_VISIBLE_SEGMENTS).map((p) => ({
             x: Math.round(p.x),
@@ -190,16 +194,23 @@ function spawnPlayerSnake(world: World, playerId: string, spawnIndex: number): W
     ...world,
     snakes: [...world.snakes, snake],
     snakeMassById: { ...world.snakeMassById, [playerId]: DEFAULT_START_MASS },
+    foodEatenById: { ...world.foodEatenById, [playerId]: 0 },
   }
 }
 
 function removePlayer(world: World, playerId: string): World {
   const nextMass = { ...world.snakeMassById }
   delete nextMass[playerId]
+  const nextFoodEaten = { ...world.foodEatenById }
+  delete nextFoodEaten[playerId]
+  const nextDrain = { ...world.snakeDrainPerSecById }
+  delete nextDrain[playerId]
   return {
     ...world,
     snakes: world.snakes.filter((s) => s.id !== playerId),
     snakeMassById: nextMass,
+    foodEatenById: nextFoodEaten,
+    snakeDrainPerSecById: nextDrain,
   }
 }
 

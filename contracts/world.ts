@@ -68,6 +68,19 @@ export type World = {
    */
   snakeMassById: Record<string, number>
 
+  /**
+   * Score: cumulative count of food orbs consumed per `snake.id` (any kind, including
+   * corpse food). Never decreases, unlike mass. Reset only when a player's session ends.
+   */
+  foodEatenById: Record<string, number>
+
+  /**
+   * Instantaneous mass/sec being spent on held abilities (shield/turbo/boost) this tick,
+   * keyed by `snake.id`. Recomputed fresh every tick (not cumulative) — for HUD display
+   * only, excludes the one-time fireball cost.
+   */
+  snakeDrainPerSecById: Record<string, number>
+
   /** Deterministic food PRNG state (mirrors `FoodSimState.rng` in `food.ts`). */
   foodRng: number
   /** Monotonic food-orb id counter (mirrors `FoodSimState.nextOrbId`). */

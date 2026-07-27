@@ -129,13 +129,20 @@ Client may send inputs often; **server is authoritative** for all outcomes.
 - Ability feedback can be minimal (cooldown feel via can’t-fire).
 - Minimap as above.
 - Optional debug flags allowed for development; not part of product feel.
+- **Score + drain readout:** bottom-right of the toolbar, below the canvas.
+  - **`SCORE: N`** — count of food orbs consumed this session (any kind,
+    including corpse food), not mass. Only ever goes up.
+  - **`DRAIN: -X.X/s`** — live mass/sec currently being spent on a held
+    ability (shield, boost, or turbo). Shows `DRAIN: 0/s` when nothing is
+    draining. Deliberately excludes the one-time fireball cost — that's a
+    burst spend, not an ongoing drain.
 
 ## **MVP in / out**
 
 **In**
 
 - Multiplayer WebSocket room + canvas client.
-- Rules above (turn cap, combat, abilities, food feel, vacuum, corpse layout, zoom/thickness growth, mass HUD, minimap).
+- Rules above (turn cap, combat, abilities, food feel, vacuum, corpse layout, zoom/thickness growth, mass HUD, score/drain HUD, minimap).
 
 **Out (v1)**
 

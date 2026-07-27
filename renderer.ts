@@ -14,6 +14,10 @@ export type SnapshotSnake = {
   dir: number
   length: number
   mass: number
+  /** Count of food orbs consumed (any kind), not mass. HUD "SCORE". Optional for back-compat. */
+  score?: number
+  /** Live mass/sec being spent on held abilities right now; 0 when idle. HUD "DRAIN". */
+  drainPerSec?: number
   visibleSegments: SnapshotSegment[]
 }
 

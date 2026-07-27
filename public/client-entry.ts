@@ -4,6 +4,25 @@ const canvasEl = document.getElementById('c')
 if (!(canvasEl instanceof HTMLCanvasElement)) throw new Error('#c canvas missing')
 const canvas = canvasEl
 
+const scoreEl = document.getElementById('hud-score')
+const drainEl = document.getElementById('hud-drain')
+
+/** Updates the bottom-right HUD stats for the local player from the latest snapshot. Purely
+ *  cosmetic client-side formatting — score and drainPerSec are both authoritative server values. */
+function updateHudStats(snap: ReturnType<typeof parseGameSnapshot>, localPlayerId: string | null): void {
+  if (!snap || !localPlayerId) return
+  const mine = snap.snakes.find((s) => s.id === localPlayerId)
+  if (!mine) return
+
+  if (scoreEl) scoreEl.textContent = `SCORE: ${mine.score ?? 0}`
+
+  if (drainEl) {
+    const drain = mine.drainPerSec ?? 0
+    drainEl.textContent = drain > 0 ? `DRAIN: -${drain.toFixed(1)}/s` : 'DRAIN: 0/s'
+    drainEl.classList.toggle('active', drain > 0)
+  }
+}
+
 function fitCanvas(el: HTMLCanvasElement): void {
   const rect = el.getBoundingClientRect()
   const dpr = Math.min(window.devicePixelRatio ?? 1, 2)
@@ -51,6 +70,7 @@ function directionFromKeys(): { x: number; y: number } {
 
 let renderer: GameRenderer | undefined
 let ws!: WebSocket
+let localPlayerId: string | null = null
 
 function scheduleReconnect(): void {
   window.setTimeout(() => {
@@ -71,6 +91,7 @@ function connectSocket(): WebSocket {
     if (!raw || typeof raw !== 'object') return
     const msg = raw as Record<string, unknown>
     if (msg.t === 'welcome' && typeof msg.id === 'string') {
+      localPlayerId = msg.id
       renderer?.stop()
       renderer = new GameRenderer({
         canvas,
@@ -83,6 +104,7 @@ function connectSocket(): WebSocket {
     }
     const snap = parseGameSnapshot(raw)
     if (snap && renderer) renderer.pushSnapshot(snap)
+    updateHudStats(snap, localPlayerId)
   })
 
   socket.addEventListener('close', scheduleReconnect)
