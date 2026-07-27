@@ -43,6 +43,8 @@ export type Fireball = {
   position: Vec2
   velocity: Vec2
   radius: number
+  /** Where this projectile spawned; used to expire it past `FIREBALL_MAX_RANGE_PX`. */
+  spawnPosition?: Vec2
 }
 
 /**

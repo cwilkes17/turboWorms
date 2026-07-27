@@ -158,13 +158,20 @@ export function buildSnapshot(world: World) {
     food,
     /** Total consumable orbs in sim (may exceed `food.length` when snapshot is capped). */
     foodTotal: world.food.length,
-    fireballs: world.fireballs.map((fb) => ({
-      id: fb.id,
-      ownerId: fb.ownerId,
-      x: Math.round(fb.position.x),
-      y: Math.round(fb.position.y),
-      r: fb.radius,
-    })),
+    fireballs: world.fireballs.map((fb) => {
+      const spawn = fb.spawnPosition ?? fb.position
+      return {
+        id: fb.id,
+        ownerId: fb.ownerId,
+        x: Math.round(fb.position.x),
+        y: Math.round(fb.position.y),
+        r: fb.radius,
+        /** Spawn point, so the client can fade the projectile out as it nears
+         *  FIREBALL_MAX_RANGE_PX without the server needing to send a life fraction. */
+        sx: Math.round(spawn.x),
+        sy: Math.round(spawn.y),
+      }
+    }),
   }
 }
 

@@ -2,6 +2,7 @@ import {
   type AbilityInput,
   BOOST_MASS_DRAIN_PER_SEC,
   BOOST_SPEED_MUL,
+  FIREBALL_MAX_RANGE_PX,
   MASS_EPS,
   TURBO_SPEED_MUL,
   tickAbilities,
@@ -45,6 +46,8 @@ export type GameTickOptions = {
   collision?: CollisionOptions
   /** Angular cap steering head toward inputs (rad/s); default avoids WASD snapping into self-hit. */
   headTurnRadPerSec?: number
+  /** Distance a fireball can travel from its spawn point before despawning (world units). */
+  fireballMaxRangePx?: number
 }
 
 function cloneSnake(s: Snake): Snake {
@@ -64,7 +67,12 @@ function cloneFood(o: FoodOrb): FoodOrb {
 }
 
 function cloneFb(f: Fireball): Fireball {
-  return { ...f, position: { ...f.position }, velocity: { ...f.velocity } }
+  return {
+    ...f,
+    position: { ...f.position },
+    velocity: { ...f.velocity },
+    spawnPosition: f.spawnPosition ? { ...f.spawnPosition } : undefined,
+  }
 }
 
 function cloneWorld(w: World): World {
@@ -152,14 +160,24 @@ function movementSpeedMultiplier(snake: Snake, mass: number, input: AbilityInput
   return 1
 }
 
-function integrateFireballs(fbs: Fireball[], dt: number): Fireball[] {
-  return fbs.map((fb) => ({
-    ...fb,
-    position: {
-      x: fb.position.x + fb.velocity.x * dt,
-      y: fb.position.y + fb.velocity.y * dt,
-    },
-  }))
+/** Moves projectiles, then drops any that have traveled past `maxRangePx` from spawn.
+ *  A fireball with no `spawnPosition` (e.g. an older save or a hand-built test fixture)
+ *  can't have its range measured, so it's left alone rather than guessed at. */
+function integrateFireballs(fbs: Fireball[], dt: number, maxRangePx: number): Fireball[] {
+  return fbs
+    .map((fb) => ({
+      ...fb,
+      position: {
+        x: fb.position.x + fb.velocity.x * dt,
+        y: fb.position.y + fb.velocity.y * dt,
+      },
+    }))
+    .filter((fb) => {
+      if (!fb.spawnPosition) return true
+      const dx = fb.position.x - fb.spawnPosition.x
+      const dy = fb.position.y - fb.spawnPosition.y
+      return hypot(dx, dy) < maxRangePx
+    })
 }
 
 /** 1 — steer facing toward inputs (smooth turn prevents spine-overlap suicide on snapped WASD/network). */
@@ -218,6 +236,7 @@ export function tick(world: World, inputs: TickInputs, deltaTime: number, option
   const flatProjectileSpeed = options?.flatProjectileSpeed ?? DEFAULT_FLAT_PROJECTILE_SPEED
   const segmentSpacing = options?.segmentSpacing ?? SEGMENT_SPACING
   const headTurnOmega = options?.headTurnRadPerSec ?? DEFAULT_HEAD_TURN_RAD_PER_SEC
+  const fireballMaxRangePx = options?.fireballMaxRangePx ?? FIREBALL_MAX_RANGE_PX
 
   let w = applyInputs(world, inputs, dt, headTurnOmega)
 
@@ -275,6 +294,7 @@ export function tick(world: World, inputs: TickInputs, deltaTime: number, option
         position: { ...spawned.position },
         velocity: { ...spawned.velocity },
         radius: spawned.radius,
+        spawnPosition: { ...(spawned.spawnPosition ?? spawned.position) },
       })
     }
 
@@ -294,7 +314,7 @@ export function tick(world: World, inputs: TickInputs, deltaTime: number, option
   /** 4b */
   w = {
     ...w,
-    fireballs: integrateFireballs(w.fireballs, dt),
+    fireballs: integrateFireballs(w.fireballs, dt, fireballMaxRangePx),
   }
 
   /** 5 — includes head vs food pickups → `massGained` */

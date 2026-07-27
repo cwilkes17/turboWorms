@@ -1,3 +1,4 @@
+import { FIREBALL_MAX_RANGE_PX } from './abilities.ts'
 
 /**
  * Canvas 2D view: server snapshots + linear interpolation between packets.
@@ -18,7 +19,17 @@ export type SnapshotSnake = {
 
 export type SnapshotFood = { id: string; x: number; y: number; r: number }
 
-export type SnapshotFireball = { id: string; ownerId: string; x: number; y: number; r: number }
+export type SnapshotFireball = {
+  id: string
+  ownerId: string
+  x: number
+  y: number
+  r: number
+  /** Spawn point (world space) — used client-side to fade the projectile out as it
+   *  approaches FIREBALL_MAX_RANGE_PX. Falls back to current position if absent. */
+  sx?: number
+  sy?: number
+}
 
 export type GameSnapshot = {
   tick: number
@@ -178,21 +189,35 @@ function drawDebugFoodMarker(ctx: CanvasRenderingContext2D, x: number, y: number
   ctx.restore()
 }
 
-function drawFireball(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+/** Fraction of range already traveled where the fade begins (rest of the range fades to 0). */
+const FIREBALL_FADE_START_FRACTION = 0.7
+
+/** 1 near spawn, ramping down to 0 as the projectile nears `FIREBALL_MAX_RANGE_PX`.
+ *  Purely cosmetic — the server is what actually despawns the fireball at max range;
+ *  this just avoids a jarring pop right before that happens. */
+function fireballFadeAlpha(traveledPx: number): number {
+  const fadeStart = FIREBALL_MAX_RANGE_PX * FIREBALL_FADE_START_FRACTION
+  if (traveledPx <= fadeStart) return 1
+  const t = (traveledPx - fadeStart) / (FIREBALL_MAX_RANGE_PX - fadeStart)
+  return clamp01(1 - t)
+}
+
+function drawFireball(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha = 1) {
+  ctx.save()
+  ctx.globalAlpha = clamp01(alpha)
   const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 5)
   glow.addColorStop(0, 'rgba(255,248,220,1)')
   glow.addColorStop(0.2, 'rgba(255,140,50,0.75)')
   glow.addColorStop(1, 'rgba(200,40,10,0)')
-  ctx.save()
   ctx.fillStyle = glow
   ctx.beginPath()
   ctx.arc(x, y, r * 5, 0, Math.PI * 2)
   ctx.fill()
-  ctx.restore()
   ctx.beginPath()
   ctx.arc(x, y, Math.max(r, 2), 0, Math.PI * 2)
   ctx.fillStyle = 'rgba(255,210,120,0.95)'
   ctx.fill()
+  ctx.restore()
 }
 
 export class GameRenderer {
@@ -380,9 +405,10 @@ export class GameRenderer {
 
 
       const q = interpFb(fbPrev.get(fb.id), fb, alpha)
-
-
-      drawFireball(ctx, q.x, q.y, q.r)
+      const sx = fb.sx ?? fb.x
+      const sy = fb.sy ?? fb.y
+      const traveled = Math.hypot(q.x - sx, q.y - sy)
+      drawFireball(ctx, q.x, q.y, q.r, fireballFadeAlpha(traveled))
 
 
 

@@ -54,14 +54,14 @@ test('circle helper sanity', () => {
   assert.equal(circlesOverlap(0, 0, 1, 5, 0, 1), false)
 })
 
-test('fireball head overlap kills snake and removes projectile', () => {
+test('fireball head overlap kills an enemy snake and removes projectile', () => {
   const snake = worm({
     id: 'snake-a',
     segments: [{ x: 10, y: 0 }],
   })
   const projectile = fb({
     id: 'fb-1',
-    ownerId: 'snake-a',
+    ownerId: 'enemy',
     position: { x: 10, y: 0 },
     radius: 5,
     velocity: { x: 0, y: 0 },
@@ -69,6 +69,26 @@ test('fireball head overlap kills snake and removes projectile', () => {
   const out = resolveCollisions([snake], [projectile], [], opts())
   assert.equal(out.fireballs.length, 0)
   assert.equal(out.snakes[0].alive, false)
+})
+
+test('fireball never kills its own owner, even overlapping the owner head at spawn', () => {
+  // Regression test: a fireball spawns at its owner's head position, so on the tick
+  // it's created it can still overlap that same head (one tick of travel isn't enough
+  // to clear the combined radii). It must not be lethal to its owner.
+  const snake = worm({
+    id: 'shooter',
+    segments: [{ x: 10, y: 0 }],
+  })
+  const ownFireball = fb({
+    id: 'fb-own',
+    ownerId: 'shooter',
+    position: { x: 10, y: 0 },
+    radius: 5,
+    velocity: { x: 40, y: 0 },
+  })
+  const out = resolveCollisions([snake], [ownFireball], [], opts())
+  assert.equal(out.snakes[0].alive, true)
+  assert.equal(out.fireballs.length, 1)
 })
 
 test('fireball body overlap removes projectile but leaves snake alive', () => {

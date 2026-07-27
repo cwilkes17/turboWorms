@@ -102,7 +102,7 @@ Implemented in `tick()` in `gameLoop.ts`:
 | 2 | `updateAbilityHeldState` — e.g. shield held flag |
 | 3 | `simulateMovement` — head + rope; boost/turbo is a speed *preview*, not persisted on the snake |
 | 4 | `tickAbilities` per snake — fireball spawn, mass drains, appends `fireballsSpawned` |
-| 4b | `integrateFireballs` — linear motion for the tick |
+| 4b | `integrateFireballs` — linear motion for the tick, then drops any fireball that has traveled past `FIREBALL_MAX_RANGE_PX` from its `spawnPosition` |
 | 5 | `resolveCollisions` — fireball vs snakes, head vs head, head vs enemy body, head vs food, deaths → corpse orbs |
 | 6 | `tickFood` with `consumeWithHeads: false` — Brownian + spawns + head vacuum (eating already handled in step 5) |
 | 7 | `applyMassLengthSync` — grow/shrink segments to match mass |
@@ -115,7 +115,7 @@ table.
 
 - **`movement.ts`** — `simulateMovement` (head along `cos/sin(dir)*speed*dt`, body re-spaced at `SEGMENT_SPACING`); `steerHeadingToward` (turn-rate cap, `DEFAULT_HEAD_TURN_RAD_PER_SEC = 12`).
 - **`abilities.ts`** — `tickAbilities`. Order per tick: fireball cost → shield drain → turbo/boost drain → clamp mass. See constants table below.
-- **`collision.ts`** — `resolveCollisions`, uniform grid over segments + circle tests. Self body never kills the owner (intentional); enemy body kills the attacking head. Food: head overlap → `massGained`.
+- **`collision.ts`** — `resolveCollisions`, uniform grid over segments + circle tests. Self body never kills the owner (intentional); enemy body kills the attacking head. A fireball's own owner is filtered out of its head-hit candidates for the same reason — otherwise a fireball spawned at the owner's head still overlaps that head on the tick it's created and kills its own shooter (fixed 2026-07-27, see DECISIONS.md). Food: head overlap → `massGained`.
 - **`food.ts`** — `generateSpawnFields`, `tickFood` (Brownian, `applyHeadVacuumPull`, optional head consume). Deterministic RNG (`random01`, xorshift32).
 - **`gameLoop.ts`** — `tick`, `createEmptyWorld`, `applyMassLengthSync`, `MASS_PER_SEGMENT`, `IDLE_ABILITIES`.
 - **`server.ts`** — `startServer`, WS sessions, `buildTickInputs`, `mergePlayerInput`, `buildSnapshot`, `selectFoodForSnapshot` (proximity-aware cap via `MAX_FOOD_IN_SNAPSHOT`).
@@ -134,14 +134,20 @@ table.
 | `TURBO_SPEED_MUL` | `abilities.ts` | 3 (×3) |
 | `DEFAULT_HEAD_TURN_RAD_PER_SEC` | `movement.ts` | 12 |
 | `MASS_PER_SEGMENT` | `gameLoop.ts` | 10 |
+| `FIREBALL_MAX_RANGE_PX` | `abilities.ts` | 900 |
 
-*(As of 2026-07-27, these were just reconciled — code previously had fireball at 25% and shield at 5%/s, which contradicted PRODUCT.md; code was updated to match the spec.)*
+*(As of 2026-07-27, these were just reconciled — code previously had fireball at 25% and shield at 5%/s, which contradicted PRODUCT.md; code was updated to match the spec. `FIREBALL_MAX_RANGE_PX` was added the same day as a new rule — see DECISIONS.md.)*
 
 ## 8. Networking wire shapes
 
 **Welcome:** `{ "t": "welcome", "id": "p-1", "tickHz": 25, "bounds": {...} }`
 
-**Snap** (every tick): `{ "t": "snap", "tick", "snakes": [{id, alive, head, dir, length, mass, visibleSegments}], "food": [{id, x, y, r}], "foodTotal", "fireballs": [{id, ownerId, x, y, r}] }`
+**Snap** (every tick): `{ "t": "snap", "tick", "snakes": [{id, alive, head, dir, length, mass, visibleSegments}], "food": [{id, x, y, r}], "foodTotal", "fireballs": [{id, ownerId, x, y, r, sx, sy}] }`
+
+- `sx, sy` — the fireball's spawn point. Added so the client can fade the
+  projectile out as it nears `FIREBALL_MAX_RANGE_PX` without the server
+  needing to send a life fraction every tick. Purely cosmetic on the client
+  side — the server is what actually removes the fireball at max range.
 
 **Input:** `{ "t": "input", "d": { "direction": {x, y}, "fire", "shield", "boost", "turbo" } }`
 

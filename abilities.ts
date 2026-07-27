@@ -19,6 +19,15 @@ export const TURBO_SPEED_MUL = 3
 
 export const MASS_EPS = 1e-9
 
+/**
+ * Fireball despawns after traveling this far from where it spawned (world units,
+ * same space as segment positions). Chosen as roughly half a screen-width at
+ * default zoom (~900-1000 units visible) so it has real range but can't cross
+ * the map (bounds.radius is typically 6000, i.e. a 12000-unit diameter — this
+ * is ~7.5% of that). See docs/DECISIONS.md.
+ */
+export const FIREBALL_MAX_RANGE_PX = 900
+
 export type SnakeWithMass = Snake & { mass: number }
 
 export type AbilityInput = {
@@ -36,6 +45,10 @@ export type FireballProjectile = {
   velocity: Vec2
   /** Matches head radius scaled from mass before fireball resolves. */
   radius: number
+  /** Where this projectile spawned; used to measure travel distance for range expiry.
+   *  Optional so hand-built test fixtures without it still type-check — gameLoop
+   *  treats a missing spawnPosition as "can't determine range, never expire". */
+  spawnPosition?: Vec2
 }
 
 export type AbilityTickCtx = {
@@ -94,6 +107,7 @@ export function tickAbilities(
       position: { x: head.x, y: head.y },
       velocity: { x: vx, y: vy },
       radius,
+      spawnPosition: { x: head.x, y: head.y },
     })
     nextFireballId += 1
     mass = clampNonNegativeMass(mass * (1 - FIREBALL_MASS_FRACTION))

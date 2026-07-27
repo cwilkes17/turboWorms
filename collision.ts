@@ -180,6 +180,11 @@ export function resolveCollisions(
     const heads = cand
       .filter((it): it is Extract<GridItem, { kind: 'head' }> => it.kind === 'head')
       .filter((h) => aliveIdSet(snakes).has(h.snakeId))
+      /** Own fireball is never lethal to its owner (PRODUCT.md: "Fireball ↔ enemy head").
+       *  Without this, a fireball spawned at the owner's head overlaps that same head on
+       *  the very tick it's created (spawn position ≈ head position, one tick of travel
+       *  isn't enough to clear the combined radii) and instantly kills the shooter. */
+      .filter((h) => h.snakeId !== fb.ownerId)
       .sort(cmpHead)
 
     for (const h of heads) {

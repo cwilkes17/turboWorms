@@ -79,7 +79,12 @@ Client may send inputs often; **server is authoritative** for all outcomes.
 - Spends **10% of current mass** on fire.
 - Spawns at head, travels straight along facing; radius scales with head size.
 - **5 second cooldown** after a successful fire.
-- Lethal **only on head** (see Combat).
+- Lethal **only on head**, and **only on enemies** — a fireball can never kill its
+  own owner, even if it's still overlapping their head the instant it spawns
+  (see Combat).
+- **Range:** despawns after traveling **900px** from where it fired (roughly
+  half a screen at default zoom) — real range, but can't snipe across the
+  map. Fades out over the last ~30% of that distance rather than popping.
 
 ### **Shield**
 

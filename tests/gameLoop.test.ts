@@ -136,3 +136,62 @@ test('integrates existing projectiles before collision checks', () => {
   assert.equal(next.fireballs.length, 1)
   assert.ok(Math.abs(next.fireballs[0].position.x - (1_000 + 40 * 0.25)) < 1e-6)
 })
+
+test('fireball despawns once it travels past fireballMaxRangePx from its spawn point', () => {
+  const world = createEmptyWorld({
+    bounds: { center: { x: 0, y: 0 }, radius: 5_000 },
+    snakes: [
+      {
+        id: 'solo',
+        segments: [{ x: 0, y: 0 }],
+        direction: 0,
+        speed: 0,
+        alive: true,
+      },
+    ],
+    snakeMassById: { solo: 1 },
+    fireballs: [
+      {
+        id: 'far-traveler',
+        ownerId: 'solo',
+        position: { x: 850, y: 0 },
+        spawnPosition: { x: 0, y: 0 },
+        velocity: { x: 100, y: 0 },
+        radius: 3,
+      },
+    ],
+  })
+
+  // 850 + 100*0.5 = 900, at/over the 900px default range -> despawned this tick
+  const next = tick(world, idleInputs('solo'), 0.5)
+  assert.equal(next.fireballs.length, 0)
+})
+
+test('fireball within range survives the tick', () => {
+  const world = createEmptyWorld({
+    bounds: { center: { x: 0, y: 0 }, radius: 5_000 },
+    snakes: [
+      {
+        id: 'solo',
+        segments: [{ x: 0, y: 0 }],
+        direction: 0,
+        speed: 0,
+        alive: true,
+      },
+    ],
+    snakeMassById: { solo: 1 },
+    fireballs: [
+      {
+        id: 'still-flying',
+        ownerId: 'solo',
+        position: { x: 100, y: 0 },
+        spawnPosition: { x: 0, y: 0 },
+        velocity: { x: 40, y: 0 },
+        radius: 3,
+      },
+    ],
+  })
+
+  const next = tick(world, idleInputs('solo'), 0.25)
+  assert.equal(next.fireballs.length, 1)
+})
