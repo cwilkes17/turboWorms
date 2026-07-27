@@ -44,7 +44,14 @@
     }
     #hud-score { color: #c8e0ff; }
     #hud-mass { color: #a8e6a1; }
-    #hud-drain { color: #9fb4c9; }
+    #hud-drain {
+      color: #9fb4c9;
+      /* Reserves room for the widest realistic value ("DRAIN: -999.9/s") so toggling
+         between "0/s" and an active rate doesn't change this element's width and shift
+         SCORE/MASS to the left (this span is a flex item, so min-width applies directly). */
+      display: inline-block;
+      min-width: 16ch;
+    }
     #hud-drain.active { color: #ff9d7a; }
     code { color: #c8e0ff; }
   </style>
