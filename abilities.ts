@@ -1,6 +1,6 @@
 import type { Snake, Vec2 } from './contracts/snake'
 
-export const FIREBALL_MASS_FRACTION = 0.1
+export const FIREBALL_MASS_FRACTION = 0.2
 
 /** Shield: 1% of current mass per second (applied after any fireball cost). */
 export const SHIELD_DRAIN_PER_SEC = 0.01
@@ -89,7 +89,7 @@ function clampNonNegativeMass(m: number): number {
 /**
  * Applies resource costs and ability effects for one tick.
  *
- * Order (deterministic): fireball 10% (if triggered and off cooldown) → shield 1%/s of
+ * Order (deterministic): fireball 20% (if triggered and off cooldown) → shield 1%/s of
  * current mass → turbo 10%/s or boost 2/s mass (turbo suppresses boost) → clamp mass.
  *
  * `Snake.speed` is not modified; use `effectiveSpeed` with `ctx.intrinsicSpeed` as the worm baseline.

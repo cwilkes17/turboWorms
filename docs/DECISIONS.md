@@ -11,6 +11,25 @@ directly, since there's only ever one current structure worth documenting).
 
 ---
 
+## 2026-07-27 — Fireball cost retuned to 20% (was 10%)
+
+- **What:** `FIREBALL_MASS_FRACTION` 0.10 → 0.20. Requested directly against
+  PRODUCT.md (not a bug fix — an explicit retune).
+- **Why:** playtest call; no other reasoning recorded beyond "change it to
+  20%." If the actual motivation (e.g. fireball felt too cheap/spammy even
+  with the 5s cooldown) surfaces later, worth appending here.
+- **Updated:** `abilities.ts` (`FIREBALL_MASS_FRACTION` + the tick-order
+  comment), `docs/PRODUCT.md`, `docs/ARCHITECTURE.md` (constants table),
+  `docs/DEVELOPER_GUIDE.md`, and test names/comments in
+  `tests/abilities.test.ts` / `tests/integration.test.ts`. One test
+  (`tests/integration.test.ts`, the held-fire regression test) had a
+  hardcoded `startMass * 0.9` assertion from the previous 10% value —
+  switched it to `startMass * (1 - FIREBALL_MASS_FRACTION)` so the next
+  retune doesn't require hunting down hardcoded fractions in tests again.
+- Does not affect shield (1%/s) or turbo (10%/s) — those are separate
+  constants that only coincidentally shared the "10%" figure with the old
+  fireball cost.
+
 ## 2026-07-27 — Score + live drain HUD added (new feature)
 
 - **What:** `SCORE: N` and `DRAIN: -X.X/s` added to the bottom-right of the

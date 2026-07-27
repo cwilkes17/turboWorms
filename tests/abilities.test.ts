@@ -44,7 +44,7 @@ const idleInput: AbilityInput = {
   turboHeld: false,
 }
 
-test('fireball spends 10% mass and preserves determinism across identical ticks', () => {
+test('fireball spends 20% mass and preserves determinism across identical ticks', () => {
   const s = worm({ mass: 80 })
   const input: AbilityInput = { ...idleInput, fireballTriggered: true }
   const a = tickAbilities(s, input, 0.016, ctx({ nextFireballId: 1 }))

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { BOOST_SPEED_MUL } from '../abilities.ts'
+import { BOOST_SPEED_MUL, FIREBALL_MASS_FRACTION } from '../abilities.ts'
 import type { Snake } from '../contracts/snake'
 import type { FoodOrb } from '../contracts/world'
 import {
@@ -146,8 +146,8 @@ test('foodEatenById accumulates across ticks; snakeDrainPerSecById reflects only
 test('holding the fire input every tick only spends mass once, not per tick', () => {
   // Reproduces the real bug: the client sends fireballTriggered:true on every input
   // message for as long as the key is physically held, not just on the initial press.
-  // Without a cooldown gate, that meant a fireball fired (and its 10% mass cost was
-  // paid) on every single simulation tick while the key was down.
+  // Without a cooldown gate, that meant a fireball fired (and its mass cost was paid)
+  // on every single simulation tick while the key was down.
   const id = 'holder'
   const startMass = 1000
   const w = createEmptyWorld({
@@ -173,7 +173,7 @@ test('holding the fire input every tick only spends mass once, not per tick', ()
   assert.equal(fireballIdsSeen.size, 1, 'only one fireball ever existed across 2.4s of holding fire')
   assert.equal(
     cur.snakeMassById[id],
-    startMass * 0.9,
+    startMass * (1 - FIREBALL_MASS_FRACTION),
     'mass was spent exactly once, not once per tick'
   )
 })

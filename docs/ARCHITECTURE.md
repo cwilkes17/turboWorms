@@ -129,7 +129,7 @@ table.
 
 | Constant | File | Value |
 |---|---|---|
-| `FIREBALL_MASS_FRACTION` | `abilities.ts` | 0.10 (10%) |
+| `FIREBALL_MASS_FRACTION` | `abilities.ts` | 0.20 (20%) |
 | `SHIELD_DRAIN_PER_SEC` | `abilities.ts` | 0.01 (1%/s) |
 | `TURBO_DRAIN_PER_SEC` | `abilities.ts` | 0.10 (10%/s) |
 | `BOOST_MASS_DRAIN_PER_SEC` | `abilities.ts` | 2 (flat mass/s) |

@@ -77,7 +77,7 @@ Client may send inputs often; **server is authoritative** for all outcomes.
 
 ### **Fireball**
 
-- Spends **10% of current mass** on fire.
+- Spends **20% of current mass** on fire.
 - Spawns at head, travels straight along facing; radius scales with head size.
 - **5 second cooldown** after a successful fire.
 - Lethal **only on head**, and **only on enemies** — a fireball can never kill its

@@ -188,7 +188,7 @@ Implemented in **`tick()`** in `gameLoop.ts`. Order matters for determinism and 
 ### `abilities.ts`
 
 - **`tickAbilities(snake + mass, AbilityInput, dt, ctx)`**  
-  - Fireball: if `fireballTriggered`, spawns projectile from **head**, direction = `snake.direction`, speed = `ctx.flatProjectileSpeed`, radius from **`headRadiusFromMass`**, costs **10%** mass (`FIREBALL_MASS_FRACTION`).
+  - Fireball: if `fireballTriggered`, spawns projectile from **head**, direction = `snake.direction`, speed = `ctx.flatProjectileSpeed`, radius from **`headRadiusFromMass`**, costs **20%** mass (`FIREBALL_MASS_FRACTION`).
   - Shield / turbo / boost drains and speed multipliers (movement uses parallel gates in `gameLoop` for boost preview).
 
 ### `collision.ts`
