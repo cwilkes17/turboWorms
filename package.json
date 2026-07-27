@@ -1,0 +1,16 @@
+{
+  "name": "turboworms",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:client": "esbuild public/client-entry.ts --bundle --format=iife --platform=browser --outfile=public/client.bundle.js",
+    "prestart": "npm run build:client",
+    "start": "node --experimental-strip-types server.ts"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.11"
+  }
+}

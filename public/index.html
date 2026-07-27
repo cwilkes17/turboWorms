@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>turboWorms</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #0b0f14;
+      color: #9fb4c9;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+    canvas#c {
+      display: block;
+      width: 100vw;
+      height: calc(100vh - 52px);
+    }
+    #hud {
+      box-sizing: border-box;
+      height: 52px;
+      padding: 8px 12px;
+      font-size: 13px;
+      line-height: 1.35;
+      border-top: 1px solid #1f2a38;
+      background: rgba(10, 14, 20, 0.92);
+    }
+    code { color: #c8e0ff; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="960" height="540" aria-label="Game view"></canvas>
+  <div id="hud">
+    Wasd / arrows: move · <code>Space</code> fire · <code>Q</code> shield · hold <code>Shift</code> boost · <code>E</code> turbo.
+    Websocket · add <code>?ws=ws://host:port</code> when not served from game server (e.g. file://).
+  </div>
+  <script src="/client.bundle.js"></script>
+</body>
+</html>
