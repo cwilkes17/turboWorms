@@ -123,7 +123,7 @@ table.
 - **`gameLoop.ts`** — `tick`, `createEmptyWorld`, `applyMassLengthSync`, `MASS_PER_SEGMENT`, `IDLE_ABILITIES`. Merges `collision.ts`'s `foodEatenCount` into `World.foodEatenById` cumulatively (step 5, same pattern as `massGained`); replaces `World.snakeDrainPerSecById` wholesale each tick from `abilities.ts`'s `drainPerSec` (step 4, not cumulative).
 - **`server.ts`** — `startServer`, WS sessions, `buildTickInputs`, `mergePlayerInput`, `buildSnapshot`, `selectFoodForSnapshot` (proximity-aware cap via `MAX_FOOD_IN_SNAPSHOT`). `buildSnapshot` maps `foodEatenById`/`snakeDrainPerSecById` onto each snake's wire entry as `score`/`drainPerSec`.
 - **`renderer.ts`** — `parseGameSnapshot`, `GameRenderer` (lerp between last two snaps, camera follows `followPlayerId`). `SnapshotSnake.score`/`drainPerSec` are carried through the type but not drawn on canvas — the HUD reads them directly in `client-entry.ts` instead (see below).
-- **`public/client-entry.ts`** — WS wiring, WASD → direction, ability keys, `?debugFood=1` overlay. `updateHudStats` reads `score`/`drainPerSec` off the local player's snapshot entry (matched by `welcome.id`) and writes them into `#hud-score`/`#hud-drain` in `public/index.html` (bottom-right of the toolbar) on every snapshot — plain DOM text updates, no canvas drawing involved.
+- **`public/client-entry.ts`** — WS wiring, WASD → direction, ability keys, `?debugFood=1` overlay. `updateHudStats` reads `score`/`mass`/`drainPerSec` off the local player's snapshot entry (matched by `welcome.id`) and writes them into `#hud-score`/`#hud-mass`/`#hud-drain` in `public/index.html` (bottom-right of the toolbar, in that order) on every snapshot — plain DOM text updates, no canvas drawing involved. `mass` needed no new server plumbing; it was already on the wire, just never displayed anywhere.
 
 ### Gameplay constants (must match `docs/PRODUCT.md` — see §10 for the process that keeps them in sync)
 
@@ -154,6 +154,7 @@ table.
   side — the server is what actually removes the fireball at max range.
 - `score` — count of food orbs consumed (any kind), from `World.foodEatenById`. Cumulative, never decreases.
 - `drainPerSec` — live mass/sec being spent on a held ability right now, from `World.snakeDrainPerSecById`. Instantaneous; 0 when idle. Excludes the one-time fireball cost.
+- `mass` already existed on the wire before any of this — the HUD toolbar (`score`/`mass`/`drainPerSec`, in that order) is just the first place anything actually displayed it. PRODUCT.md's "mass number HUD" line predates this and was previously unbuilt.
 
 **Input:** `{ "t": "input", "d": { "direction": {x, y}, "fire", "shield", "boost", "turbo" } }`
 

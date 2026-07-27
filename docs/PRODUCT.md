@@ -129,9 +129,15 @@ Client may send inputs often; **server is authoritative** for all outcomes.
 - Ability feedback can be minimal (cooldown feel via can’t-fire).
 - Minimap as above.
 - Optional debug flags allowed for development; not part of product feel.
-- **Score + drain readout:** bottom-right of the toolbar, below the canvas.
+- **Toolbar readout:** bottom-right of the toolbar, below the canvas, three
+  numbers in this order:
   - **`SCORE: N`** — count of food orbs consumed this session (any kind,
     including corpse food), not mass. Only ever goes up.
+  - **`MASS: N`** — the same authoritative mass value that drives segment
+    count/thickness (`snakeMassById`). Goes up when food is eaten, goes down
+    live while an ability drains it — this is the mass number the "mass
+    number HUD" line above always called for; it just wasn't built until the
+    toolbar readout existed to place it in.
   - **`DRAIN: -X.X/s`** — live mass/sec currently being spent on a held
     ability (shield, boost, or turbo). Shows `DRAIN: 0/s` when nothing is
     draining. Deliberately excludes the one-time fireball cost — that's a

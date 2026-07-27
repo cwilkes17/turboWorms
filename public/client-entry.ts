@@ -5,16 +5,19 @@ if (!(canvasEl instanceof HTMLCanvasElement)) throw new Error('#c canvas missing
 const canvas = canvasEl
 
 const scoreEl = document.getElementById('hud-score')
+const massEl = document.getElementById('hud-mass')
 const drainEl = document.getElementById('hud-drain')
 
 /** Updates the bottom-right HUD stats for the local player from the latest snapshot. Purely
- *  cosmetic client-side formatting — score and drainPerSec are both authoritative server values. */
+ *  cosmetic client-side formatting — score, mass, and drainPerSec are all authoritative server
+ *  values (`mass` already reflects this tick's drain and food pickups; nothing computed here). */
 function updateHudStats(snap: ReturnType<typeof parseGameSnapshot>, localPlayerId: string | null): void {
   if (!snap || !localPlayerId) return
   const mine = snap.snakes.find((s) => s.id === localPlayerId)
   if (!mine) return
 
   if (scoreEl) scoreEl.textContent = `SCORE: ${mine.score ?? 0}`
+  if (massEl) massEl.textContent = `MASS: ${mine.mass}`
 
   if (drainEl) {
     const drain = mine.drainPerSec ?? 0
