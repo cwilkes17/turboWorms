@@ -11,6 +11,35 @@ directly, since there's only ever one current structure worth documenting).
 
 ---
 
+## 2026-07-27 — Bounced fireball is now lethal to its own original owner (reverses prior entry)
+
+- **What:** once a fireball has bounced off a shield (`fb.bounced === true`),
+  owner-immunity ends. It can now kill the snake that fired it, same as any
+  other head it touches post-bounce. Pre-bounce immunity is unchanged — a
+  fresh fireball still can never hit its own owner's head or body.
+- **This explicitly reverses a claim in the entry below** ("Shield now
+  actually blocks fireballs"), which said bounced fireballs are "still never
+  their original owner — that immunity is unrelated and untouched." That was
+  correct when written; it was changed on direct instruction the same day, to
+  give firing at a shielded target real risk for the shooter — bounce it back
+  wrong and it can come home.
+- **Fix:** `collision.ts`'s head-hit candidate filter changed from
+  `h.snakeId !== fb.ownerId` (unconditional) to `fb.bounced || h.snakeId !==
+  fb.ownerId` — immunity only applies before the first bounce.
+- **Body-hit filter deliberately left unconditional** (still excludes the
+  owner always, bounced or not). This isn't an oversight: body hits are never
+  lethal to anyone regardless of shield, and keeping the owner's own body
+  excluded is what lets a bounced fireball pass back through its owner's
+  trailing segments to actually reach and threaten their head, instead of
+  being absorbed by their own tail on the way in.
+- **PRODUCT.md** updated: the "On fireball hit while shielded" list now
+  states the immunity-ends-on-bounce rule explicitly as step 2.
+- Tests: replaced `tests/collision.test.ts`'s old "a bounced fireball still
+  cannot harm its own original owner" (asserted the now-reversed behavior)
+  with two tests — one confirming pre-bounce immunity still holds, one
+  confirming a bounced fireball is lethal to its original owner. Full suite:
+  68/68 passing.
+
 ## 2026-07-27 — Shield now actually blocks fireballs (bounce, still deadly after)
 
 - **What:** filled in the mechanic PRODUCT.md already specified but that

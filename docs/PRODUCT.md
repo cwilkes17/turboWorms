@@ -99,12 +99,17 @@ Client may send inputs often; **server is authoritative** for all outcomes.
 - On fireball hit while shielded:
   1. Fireball **bounces** (reflects) off the shield; the shielded player
      takes **no damage** from this hit.
-  2. After the bounce it is **still deadly** — it can kill the next enemy
-     head it touches, same as any other fireball. It still can never harm
-     its original owner.
-  3. It **fades to black** and **despawns** a short distance after the
-     bounce — its own short travel budget, shorter than a fresh fireball's
-     normal range, measured from the bounce point.
+  2. After the bounce it is **still deadly** — it can kill the next head it
+     touches, **including its own original owner** if it flies back into
+     them. A fireball can never hit its own owner before it bounces; that
+     immunity ends the instant it bounces off an enemy shield. Firing at a
+     shielded target is meant to carry real risk for the shooter.
+  3. Chain bounces are allowed: a bounced fireball can bounce again off a
+     second shield, resetting its range budget each time. There's no cap on
+     how many times it can bounce.
+  4. It **fades to black** and **despawns** a short distance after the
+     (most recent) bounce — its own short travel budget, shorter than a
+     fresh fireball's normal range, measured from the bounce point.
 
 ### **Boost / Turbo**
 

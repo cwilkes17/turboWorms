@@ -141,7 +141,25 @@ test('a bounced fireball is still lethal to the next enemy head it touches', () 
   assert.equal(secondHit.fireballs.length, 0, 'consumed on the lethal hit, same as any other fireball')
 })
 
-test('a bounced fireball still cannot harm its own original owner', () => {
+test('a fresh (not yet bounced) fireball still cannot harm its own original owner', () => {
+  // Owner-immunity still applies before any bounce - only firing at a shielded target
+  // opens up the risk. An unbounced fireball flying back toward its own shooter (e.g. a
+  // stray shot that curves back is not possible here, but a shooter moving into their own
+  // slow-traveling shot is) must stay harmless.
+  const shooter = worm({ id: 'shooter', segments: [{ x: 10, y: 0 }] })
+  const ownFireball = fb({
+    id: 'fb-1',
+    ownerId: 'shooter',
+    position: { x: 10, y: 0 },
+    radius: 5,
+    velocity: { x: 40, y: 0 },
+  })
+  const out = resolveCollisions([shooter], [ownFireball], [], opts())
+  assert.equal(out.snakes[0].alive, true)
+  assert.equal(out.fireballs.length, 1)
+})
+
+test('a bounced fireball IS lethal to its own original owner - firing at a shield carries risk', () => {
   const shielded = worm({
     id: 'guardian',
     segments: [{ x: 100, y: 0 }],
@@ -157,11 +175,12 @@ test('a bounced fireball still cannot harm its own original owner', () => {
   const opt = { ...opts(), headRadius: 8, bodyRadius: 8 }
   const afterBounce = resolveCollisions([shielded], [projectile], [], opt)
   const bouncedFb = afterBounce.fireballs[0]!
+  assert.equal(bouncedFb.bounced, true)
 
   const owner = worm({ id: 'shooter', segments: [{ x: bouncedFb.position.x, y: bouncedFb.position.y }] })
   const secondHit = resolveCollisions([owner], [bouncedFb], [], opt)
-  assert.equal(secondHit.snakes[0].alive, true, 'still immune to its own original owner after bouncing')
-  assert.equal(secondHit.fireballs.length, 1, 'passes through untouched, not consumed')
+  assert.equal(secondHit.snakes[0].alive, false, 'the shooter is not immune once their own shot has bounced')
+  assert.equal(secondHit.fireballs.length, 0, 'consumed on the lethal hit')
 })
 
 test('a bounced fireball can bounce again off a second shield', () => {
